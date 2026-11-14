@@ -2,10 +2,582 @@
 <html lang="id">
 <head>
 <meta charset="utf-8">
-<title>Cache22</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'></svg>">
-<script nonce="__CSP_NONCE__"></script>
-<style nonce="__CSP_NONCE__">body{font-family:system-ui;background:#0E1014;color:#F5F2EA}</style>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="color-scheme" content="dark light">
+<meta name="referrer" content="no-referrer">
+<title>Cache22 — Kirim sekali. Hilang setelah dibaca.</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2096%2096'%3E%3Crect%20width='96'%20height='96'%20rx='22'%20fill='%230E1014'/%3E%3Cpath%20d='M70.6%2059.4A22%2022%200%201%201%2070.6%2036.6'%20fill='none'%20stroke='%23F5F2EA'%20stroke-width='13'%20stroke-linecap='round'/%3E%3Ccircle%20cx='48'%20cy='43.5'%20r='7.6'%20fill='%23FFB020'/%3E%3Cpath%20d='M44.6%2048.6%20L40.4%2067%20H55.6%20L51.4%2048.6%20Z'%20fill='%23FFB020'/%3E%3C/svg%3E">
+<style nonce="__CSP_NONCE__">
+:root{
+  --ink:#0E1014;
+  --ink-2:#161922;
+  --ink-3:#1F2430;
+  --line:#262C3A;
+  --signal:#FFB020;
+  --signal-dim:#B97E14;
+  --paper:#F5F2EA;
+  --slate:#9AA0AA;
+  --danger:#FF6B5E;
+  --ok:#3FD08C;
+  --radius:18px;
+}
+@media (prefers-color-scheme: light){
+  :root{
+    --ink:#F5F2EA;
+    --ink-2:#FFFFFF;
+    --ink-3:#ECE8DD;
+    --line:#DAD5C8;
+    --paper:#14161C;
+    --slate:#5A616E;
+  }
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  background:var(--ink);
+  color:var(--paper);
+  font-family:"Avenir Next","Segoe UI",system-ui,-apple-system,sans-serif;
+  line-height:1.55;
+}
+main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 16px 48px}
+.wrap{width:100%;max-width:520px}
+header.brand{display:flex;flex-direction:column;align-items:center;gap:6px;margin-bottom:26px;text-align:center}
+.mark{width:84px;height:64px}
+.wordmark{font-size:44px;font-weight:800;letter-spacing:-1.5px;line-height:1}
+.wordmark .c22{color:var(--signal)}
+.tagline{color:var(--slate);font-size:14px;letter-spacing:.1px}
+.card{
+  background:var(--ink-2);
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  padding:22px;
+  box-shadow:0 24px 60px rgba(0,0,0,.35);
+}
+label{display:block;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--slate);margin:14px 0 6px}
+label:first-child{margin-top:0}
+textarea,input[type=text],input[type=password],select{
+  width:100%;
+  background:var(--ink-3);
+  border:1px solid var(--line);
+  border-radius:12px;
+  color:var(--paper);
+  font:inherit;
+  padding:12px;
+  outline:none;
+}
+textarea{min-height:120px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px}
+textarea:focus,input:focus,select:focus{border-color:var(--signal);box-shadow:0 0 0 3px rgba(255,176,32,.18)}
+.row{display:flex;gap:10px}
+.row > *{flex:1}
+.hint{font-size:12px;color:var(--slate);margin-top:6px}
+.counter{float:right;font-variant-numeric:tabular-nums}
+.dropzone{
+  border:1.5px dashed var(--line);
+  border-radius:12px;
+  padding:14px;
+  text-align:center;
+  color:var(--slate);
+  font-size:13px;
+  cursor:pointer;
+  transition:border-color .15s,color .15s;
+}
+.dropzone:hover{border-color:var(--signal);color:var(--paper)}
+.dropzone input{display:none}
+.filchip{
+  display:none;align-items:center;gap:8px;margin-top:10px;
+  background:var(--ink-3);border:1px solid var(--line);border-radius:999px;
+  padding:6px 12px;font-size:13px;max-width:100%;
+}
+.filchip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.filchip button{background:none;border:none;color:var(--slate);cursor:pointer;font-size:15px;line-height:1}
+.pass-toggle{display:flex;align-items:center;gap:10px;margin-top:14px}
+.switch{position:relative;width:40px;height:22px;flex:none;cursor:pointer}
+.switch input{opacity:0;width:100%;height:100%;position:absolute;cursor:pointer}
+.track{position:absolute;inset:0;background:var(--ink-3);border:1px solid var(--line);border-radius:999px;transition:background .15s}
+.thumb{position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--slate);transition:transform .15s,background .15s}
+.switch input:checked ~ .track{background:var(--signal);border-color:var(--signal)}
+.switch input:checked ~ .thumb{transform:translateX(18px);background:#1a1206}
+.pass-toggle span.lbl{font-size:13px;color:var(--paper)}
+#passWrap{display:none;margin-top:10px}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  background:var(--signal);color:#1a1206;border:none;border-radius:12px;
+  font:inherit;font-weight:800;font-size:15px;letter-spacing:.2px;
+  padding:13px 18px;cursor:pointer;width:100%;margin-top:18px;
+  transition:filter .15s,transform .05s;
+}
+.btn:hover{filter:brightness(1.07)}
+.btn:active{transform:translateY(1px)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn.ghost{background:var(--ink-3);color:var(--paper);border:1px solid var(--line);font-weight:600;margin-top:10px}
+.result{display:none;margin-top:18px;border:1px solid var(--signal-dim);border-radius:12px;padding:14px;background:rgba(255,176,32,.06)}
+.linkrow{display:flex;gap:8px;margin-top:8px}
+.linkrow input{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;flex:1;min-width:0}
+.iconbtn{background:var(--ink-3);border:1px solid var(--line);color:var(--paper);border-radius:10px;padding:0 14px;cursor:pointer;font-size:13px;font-weight:600}
+.warn{display:flex;gap:8px;align-items:flex-start;font-size:12px;color:var(--slate);margin-top:10px}
+.warn svg{flex:none;margin-top:1px}
+.reveal-state{display:flex;flex-direction:column;align-items:center;text-align:center;padding:8px 4px 2px}
+.reveal-icon{width:64px;height:64px;border-radius:18px;background:var(--ink-3);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+.reveal-state h1{font-size:20px;letter-spacing:-.3px;margin-bottom:6px}
+.reveal-state p{color:var(--slate);font-size:14px;max-width:36ch}
+.secret-out{
+  display:none;width:100%;text-align:left;background:var(--ink-3);
+  border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:14px;
+  font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;
+  white-space:pre-wrap;word-break:break-word;max-height:45vh;overflow:auto;
+}
+.error-box{display:none;text-align:center;color:var(--slate);padding:10px 4px}
+.error-box strong{color:var(--paper)}
+.file-out{display:none;width:100%;text-align:center;margin-top:14px}
+footer.site{text-align:center;color:var(--slate);font-size:12px;padding:18px 16px 26px;border-top:1px solid var(--line)}
+footer.site a{color:var(--slate)}
+.toast{
+  position:fixed;left:50%;bottom:28px;transform:translateX(-50%) translateY(8px);
+  background:var(--paper);color:var(--ink);font-size:13px;font-weight:600;
+  padding:9px 16px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .18s,transform .18s;
+}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+[hidden]{display:none !important}
+@media (max-width:480px){.wordmark{font-size:36px}.card{padding:18px}}
+@media (prefers-reduced-motion: reduce){*{transition:none !important}}
+</style>
 </head>
-<body><h1>Cache22</h1><p>placeholder — full UI lands in fase 2</p></body>
+<body>
+<main>
+  <div class="wrap">
+
+    <header class="brand">
+      <svg class="mark" viewBox="0 0 132 96" role="img" aria-label="Cache22 logo">
+        <path d="M72.6 65.2A30 30 0 1 1 72.6 30.8" fill="none" stroke="var(--paper)" stroke-width="15" stroke-linecap="round"/>
+        <circle cx="48" cy="43" r="8.2" fill="var(--signal)"/>
+        <path d="M43.6 49.6 39.2 69.5 H56.8 L52.4 49.6 Z" fill="var(--signal)"/>
+        <circle cx="90" cy="48" r="5.4" fill="var(--signal)"/>
+        <circle cx="103" cy="48" r="3.6" fill="var(--signal-dim)"/>
+        <circle cx="113.5" cy="48" r="2.4" fill="#6E5420"/>
+      </svg>
+      <div class="wordmark">cache<span class="c22">22</span></div>
+      <p class="tagline" id="tagline">Kirim sekali. Hilang setelah dibaca.</p>
+    </header>
+
+    <!-- ============ CREATE MODE ============ -->
+    <section class="card" id="view-create" aria-labelledby="create-title">
+      <h1 id="create-title" class="sr-only" style="position:absolute;left:-9999px">Cache22</h1>
+
+      <label for="secretText"><span data-i18n="secret_label">Rahasia</span>
+        <span class="counter"><span id="charCount">0</span> / 65536</span>
+      </label>
+      <textarea id="secretText" maxlength="65536" autocomplete="off" spellcheck="false" data-i18n-ph="secret_ph" placeholder="Tempel password, token API, atau catatan…"></textarea>
+
+      <div class="hint" style="margin:14px 0 6px;text-align:center;letter-spacing:.12em;text-transform:uppercase;font-size:11px;font-weight:700"><span data-i18n="or">atau</span></div>
+
+      <label class="dropzone" for="fileInput">
+        <input type="file" id="fileInput">
+        <span data-i18n="attach_file">Lampirkan file kecil (maks 2 MB)</span>
+      </label>
+      <div class="filchip" id="fileChip">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 2h9l5 5v15a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M14 2v6h6" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        <span id="fileChipName"></span>
+        <button type="button" id="fileChipClear" aria-label="Remove file">×</button>
+      </div>
+
+      <div class="row" style="margin-top:14px">
+        <div>
+          <label for="ttlSel" data-i18n="ttl_label">Kedaluwarsa</label>
+          <select id="ttlSel">
+            <option value="10m" data-i18n="ttl_10m">10 menit</option>
+            <option value="1h" selected data-i18n="ttl_1h">1 jam</option>
+            <option value="24h" data-i18n="ttl_24h">24 jam</option>
+            <option value="7d" data-i18n="ttl_7d">7 hari</option>
+          </select>
+        </div>
+        <div>
+          <label for="readsSel" data-i18n="reads_label">Maks. dibuka</label>
+          <select id="readsSel">
+            <option value="1" selected>1×</option>
+            <option value="2">2×</option>
+            <option value="3">3×</option>
+            <option value="5">5×</option>
+            <option value="10">10×</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="pass-toggle">
+        <label class="switch" for="passToggle" style="margin:0">
+          <input type="checkbox" id="passToggle">
+          <span class="track"></span>
+          <span class="thumb"></span>
+        </label>
+        <span class="lbl" data-i18n="pass_toggle">Kunci link dengan passphrase</span>
+      </div>
+      <div id="passWrap">
+        <input type="password" id="passphrase" autocomplete="new-password" data-i18n-ph="pass_ph" placeholder="Passphrase (bagikan lewat kanal terpisah)">
+        <p class="hint" data-i18n="pass_hint">PBKDF2-SHA-256 · 600.000 iterasi · kunci dibungkus di browser; server tidak pernah melihatnya.</p>
+      </div>
+
+      <button class="btn" id="createBtn" disabled data-i18n="create_btn">Buat link</button>
+
+      <div class="result" id="resultBox" role="status">
+        <div style="font-size:13px;font-weight:700;color:var(--signal)" data-i18n="result_title">Link rahasia kamu</div>
+        <div class="linkrow">
+          <input type="text" id="resultLink" readonly aria-label="Secret link">
+          <button class="iconbtn" id="copyBtn" data-i18n="copy">Salin</button>
+        </div>
+        <div class="warn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3 1.8 20.2h20.4L12 3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 10v4.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="17.4" r="1.15" fill="currentColor"/></svg>
+          <span id="resultWarn" data-i18n="result_warn">Simpan link ini sekarang — kamu tidak akan bisa melihatnya lagi. Fragmen (#…) tidak pernah dikirim ke server.</span>
+        </div>
+        <button class="btn ghost" id="againBtn" data-i18n="create_another">Buat rahasia lain</button>
+      </div>
+      <p class="hint" id="createError" role="alert" style="color:var(--danger);display:none;margin-top:10px"></p>
+    </section>
+
+    <!-- ============ READ MODE ============ -->
+    <section class="card" id="view-read" hidden aria-labelledby="reveal-title">
+      <div class="reveal-state" id="revealPane">
+        <div class="reveal-icon">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="9.5" width="18" height="11" rx="2.5" stroke="var(--signal)" stroke-width="1.8"/><path d="M8 9.5V7a4 4 0 0 1 8 0v2.5" stroke="var(--signal)" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="15" r="1.6" fill="var(--signal)"/></svg>
+        </div>
+        <h1 id="reveal-title" data-i18n="reveal_title">Rahasia menunggumu</h1>
+        <p data-i18n="reveal_body">Rahasia ini hanya bisa dibuka sekali. Setelah ditampilkan, isinya dihapus permanen dari server.</p>
+        <div id="passPromptWrap" style="width:100%;display:none;margin-top:14px">
+          <input type="password" id="revealPassphrase" autocomplete="off" data-i18n-ph="pass_reveal_ph" placeholder="Passphrase">
+        </div>
+        <button class="btn" id="revealBtn" data-i18n="reveal_btn">Tampilkan rahasia</button>
+      </div>
+
+      <pre class="secret-out" id="secretOut" tabindex="0"></pre>
+      <div class="file-out" id="fileOut">
+        <p style="color:var(--slate);font-size:13px" id="fileOutName"></p>
+        <button class="btn" id="downloadBtn" data-i18n="download_btn">Unduh file</button>
+      </div>
+      <div id="doneRow" style="display:none;margin-top:12px">
+        <button class="btn ghost" id="copySecretBtn" data-i18n="copy_secret">Salin ke clipboard</button>
+      </div>
+
+      <div class="error-box" id="errorBox" role="alert">
+        <p><strong data-i18n="err_title">Tidak ada rahasia di sini</strong></p>
+        <p data-i18n="err_body" style="margin-top:6px">Rahasia ini sudah dibaca, kedaluwarsa, atau tidak pernah ada.</p>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<footer class="site">
+  cache22 · <a href="https://github.com/nekonaru/cache22" rel="noopener noreferrer">github.com/nekonaru/cache22</a> · MIT · <span data-i18n="zero_knowledge">zero-knowledge, sekali baca</span>
+</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script nonce="__CSP_NONCE__">
+'use strict';
+/* Cache22 — client-side crypto. The server only ever stores ciphertext. */
+
+/* ---------- base64url helpers ---------- */
+function b64uEncode(bytes){
+  let bin=''; const chunk=0x8000;
+  for(let i=0;i<bytes.length;i+=chunk) bin+=String.fromCharCode.apply(null, bytes.subarray(i,i+chunk));
+  return btoa(bin).replaceAll('+','-').replaceAll('/','_').replace(/=+$/,'');
+}
+function b64uDecode(s){
+  s=s.replaceAll('-','+').replaceAll('_','/');
+  while(s.length%4) s+='=';
+  const bin=atob(s); const out=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) out[i]=bin.charCodeAt(i);
+  return out;
+}
+const utf8 = new TextEncoder();
+const utf8dec = new TextDecoder();
+
+/* ---------- i18n ---------- */
+const I18N = {
+  id:{
+    tagline:'Kirim sekali. Hilang setelah dibaca.',
+    secret_label:'Rahasia', secret_ph:'Tempel password, token API, atau catatan…', or:'atau',
+    attach_file:'Lampirkan file kecil (maks 2 MB)', ttl_label:'Kedaluwarsa', reads_label:'Maks. dibuka',
+    ttl_10m:'10 menit', ttl_1h:'1 jam', ttl_24h:'24 jam', ttl_7d:'7 hari',
+    pass_toggle:'Kunci link dengan passphrase', pass_ph:'Passphrase (bagikan lewat kanal terpisah)',
+    pass_hint:'PBKDF2-SHA-256 · 600.000 iterasi · kunci dibungkus di browser; server tidak pernah melihatnya.',
+    create_btn:'Buat link', result_title:'Link rahasia kamu', copy:'Salin', copied:'Tersalin!',
+    result_warn:'Simpan link ini sekarang — kamu tidak akan bisa melihatnya lagi. Fragmen (#…) tidak pernah dikirim ke server.',
+    result_warn_pass:'Passphrase tidak ada di link — bagikan lewat kanal terpisah. Siapa pun yang punya link tanpa passphrase tidak bisa membaca isinya.',
+    create_another:'Buat rahasia lain',
+    reveal_title:'Rahasia menunggumu', reveal_body:'Rahasia ini hanya bisa dibuka sekali. Setelah ditampilkan, isinya dihapus permanen dari server.',
+    reveal_btn:'Tampilkan rahasia', pass_reveal_ph:'Passphrase', download_btn:'Unduh file', copy_secret:'Salin ke clipboard',
+    err_title:'Tidak ada rahasia di sini', err_body:'Rahasia ini sudah dibaca, kedaluwarsa, atau tidak pernah ada.',
+    zero_knowledge:'zero-knowledge, sekali baca', link_copied:'Link tersalin!',
+    file_too_big:'File melebihi 2 MB.', secret_too_big:'Rahasia melebihi batas 64 KB.',
+    create_fail:'Gagal membuat rahasia. Coba lagi.', rate_limited:'Terlalu banyak permintaan. Tunggu sebentar.',
+    decrypt_fail:'Gagal mendekripsi. Link atau passphrase salah.',
+  },
+  en:{
+    tagline:'Send once. Gone after reading.',
+    secret_label:'Secret', secret_ph:'Paste a password, API token, or note…', or:'or',
+    attach_file:'Attach a small file (max 2 MB)', ttl_label:'Expiry', reads_label:'Max opens',
+    ttl_10m:'10 minutes', ttl_1h:'1 hour', ttl_24h:'24 hours', ttl_7d:'7 days',
+    pass_toggle:'Lock the link with a passphrase', pass_ph:'Passphrase (share via a separate channel)',
+    pass_hint:'PBKDF2-SHA-256 · 600,000 iterations · key wrapped in the browser; the server never sees it.',
+    create_btn:'Create link', result_title:'Your secret link', copy:'Copy', copied:'Copied!',
+    result_warn:'Save this link now — you will not see it again. The fragment (#…) is never sent to the server.',
+    result_warn_pass:'The passphrase is not in the link — share it via a separate channel. The link alone reveals nothing.',
+    create_another:'Create another secret',
+    reveal_title:'A secret awaits you', reveal_body:'This secret can be opened only once. Once shown, it is permanently deleted from the server.',
+    reveal_btn:'Reveal secret', pass_reveal_ph:'Passphrase', download_btn:'Download file', copy_secret:'Copy to clipboard',
+    err_title:'No secret here', err_body:'This secret was already read, expired, or never existed.',
+    zero_knowledge:'zero-knowledge, read once', link_copied:'Link copied!',
+    file_too_big:'File exceeds 2 MB.', secret_too_big:'Secret exceeds the 64 KB limit.',
+    create_fail:'Could not create the secret. Please try again.', rate_limited:'Too many requests. Please wait a moment.',
+    decrypt_fail:'Decryption failed. Wrong link or passphrase.',
+  }
+};
+const lang = (navigator.language||'en').toLowerCase().startsWith('id')||(navigator.language||'').toLowerCase().startsWith('in') ? 'id':'en';
+const T = I18N[lang];
+document.documentElement.lang = lang;
+
+function applyI18n(){
+  document.querySelectorAll('[data-i18n]').forEach(el=>{ const v=T[el.dataset.i18n]; if(v) el.textContent=v; });
+  document.querySelectorAll('[data-i18n-ph]').forEach(el=>{ const v=T[el.dataset.i18nPh]||T[el.dataset.i18n_ph]; if(v) el.placeholder=v; });
+  document.getElementById('tagline').textContent = T.tagline;
+  document.title = lang==='id' ? 'Cache22 — Kirim sekali. Hilang setelah dibaca.' : 'Cache22 — Send once. Gone after reading.';
+}
+
+/* ---------- toast ---------- */
+const toastEl = document.getElementById('toast');
+let toastTimer=null;
+function toast(msg){
+  toastEl.textContent=msg; toastEl.classList.add('show');
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>toastEl.classList.remove('show'),1800);
+}
+
+async function copyText(text, okMsg){
+  try{ await navigator.clipboard.writeText(text); toast(okMsg||T.copied); return true; }
+  catch(_){
+    const ta=document.createElement('textarea'); ta.value=text; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    let ok=false; try{ ok=document.execCommand('copy'); }catch(__){}
+    ta.remove(); if(ok) toast(okMsg||T.copied); return ok;
+  }
+}
+
+/* ---------- crypto core ---------- */
+/* Web Crypto has no Argon2, so passphrase mode uses PBKDF2-HMAC-SHA256 with
+   a high iteration count — the strongest KDF available natively in browsers. */
+const PBKDF2_ITERATIONS = 600000;
+const IV_BYTES = 12;
+const KEY_BYTES = 32;
+
+async function generateRawKey(){ return crypto.getRandomValues(new Uint8Array(KEY_BYTES)); }
+async function importAesKey(raw){ return crypto.subtle.importKey('raw', raw, {name:'AES-GCM'}, false, ['encrypt','decrypt']); }
+
+async function encryptEnvelope(envelopeObj, rawKey){
+  const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
+  const key = await importAesKey(rawKey);
+  const plain = utf8.encode(JSON.stringify(envelopeObj));
+  const ct = new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM', iv}, key, plain));
+  const payload = new Uint8Array(IV_BYTES + ct.length);
+  payload.set(iv,0); payload.set(ct,IV_BYTES);
+  return b64uEncode(payload);
+}
+async function decryptEnvelope(payloadB64u, rawKey){
+  const payload = b64uDecode(payloadB64u);
+  if(payload.length <= IV_BYTES) throw new Error('bad payload');
+  const iv = payload.subarray(0,IV_BYTES), ct = payload.subarray(IV_BYTES);
+  const key = await importAesKey(rawKey);
+  const plain = await crypto.subtle.decrypt({name:'AES-GCM', iv}, key, ct);
+  return JSON.parse(utf8dec.decode(plain));
+}
+async function wrapKey(rawDataKey, passphrase){
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
+  const baseKey = await crypto.subtle.importKey('raw', utf8.encode(passphrase), 'PBKDF2', false, ['deriveKey']);
+  const kek = await crypto.subtle.deriveKey(
+    {name:'PBKDF2', salt, iterations:PBKDF2_ITERATIONS, hash:'SHA-256'},
+    baseKey, {name:'AES-GCM', length:256}, false, ['encrypt']);
+  const wrapped = new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM', iv}, kek, rawDataKey));
+  return { salt:b64uEncode(salt), iterations:PBKDF2_ITERATIONS, iv:b64uEncode(iv), wrapped:b64uEncode(wrapped) };
+}
+async function unwrapKey(wrap, passphrase){
+  const salt=b64uDecode(wrap.salt), iv=b64uDecode(wrap.iv), wrapped=b64uDecode(wrap.wrapped);
+  const baseKey = await crypto.subtle.importKey('raw', utf8.encode(passphrase), 'PBKDF2', false, ['deriveKey']);
+  const kek = await crypto.subtle.deriveKey(
+    {name:'PBKDF2', salt, iterations:wrap.iterations||PBKDF2_ITERATIONS, hash:'SHA-256'},
+    baseKey, {name:'AES-GCM', length:256}, false, ['decrypt']);
+  return new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM', iv}, kek, wrapped));
+}
+
+/* ---------- element refs ---------- */
+const $ = (id)=>document.getElementById(id);
+const isReadMode = /^\/d\/[A-Za-z0-9\-_]{1,64}\/?$/.test(location.pathname);
+
+if(isReadMode){
+  $('view-create').hidden = true;
+  $('view-read').hidden = false;
+}else{
+  $('view-create').hidden = false;
+  $('view-read').hidden = true;
+}
+
+/* ============ CREATE FLOW ============ */
+const secretText=$('secretText'), fileInput=$('fileInput'), fileChip=$('fileChip'), fileChipName=$('fileChipName');
+const charCount=$('charCount'), createBtn=$('createBtn'), createError=$('createError');
+const resultBox=$('resultBox'), resultLink=$('resultLink'), resultWarn=$('resultWarn');
+const passToggle=$('passToggle'), passWrap=$('passWrap'), passphrase=$('passphrase');
+const MAX_TEXT=65536, MAX_FILE=2*1024*1024;
+let chosenFile=null, busy=false;
+
+function refreshCreateState(){
+  const textBytes = utf8.encode(secretText.value).length;
+  charCount.textContent = String([...secretText.value].length);
+  const hasText = secretText.value.length>0, hasFile = !!chosenFile;
+  const tooBigText = textBytes>MAX_TEXT, tooBigFile = chosenFile && chosenFile.size>MAX_FILE;
+  charCount.style.color = tooBigText ? 'var(--danger)' : '';
+  createBtn.disabled = busy || ((!hasText && !hasFile) || tooBigText || tooBigFile);
+  if(tooBigFile){ createError.textContent=T.file_too_big; createError.style.display='block'; }
+  else if(tooBigText){ createError.textContent=T.secret_too_big; createError.style.display='block'; }
+  else { createError.style.display='none'; createError.textContent=''; }
+}
+
+secretText.addEventListener('input', ()=>{ if(secretText.value.length>0 && chosenFile){ clearFile(); } refreshCreateState(); });
+fileInput.addEventListener('change', ()=>{
+  const f = fileInput.files && fileInput.files[0];
+  if(!f) return;
+  if(f.size>MAX_FILE){ fileInput.value=''; createError.textContent=T.file_too_big; createError.style.display='block'; return; }
+  chosenFile=f; secretText.value=''; fileChipName.textContent=f.name+' · '+Math.ceil(f.size/1024)+' KB';
+  fileChip.style.display='flex'; refreshCreateState();
+});
+function clearFile(){ chosenFile=null; fileInput.value=''; fileChip.style.display='none'; refreshCreateState(); }
+$('fileChipClear').addEventListener('click', clearFile);
+
+passToggle.addEventListener('change', ()=>{ passWrap.style.display = passToggle.checked?'block':'none'; if(passToggle.checked) passphrase.focus(); });
+
+$('againBtn').addEventListener('click', ()=>{
+  resultBox.style.display='none'; secretText.value=''; clearFile(); passphrase.value=''; passToggle.checked=false; passWrap.style.display='none'; refreshCreateState(); secretText.focus();
+});
+
+$('createBtn').addEventListener('click', async ()=>{
+  if(busy) return; busy=true; refreshCreateState();
+  createError.style.display='none';
+  try{
+    const ttl=$('ttlSel').value, maxReads=parseInt($('readsSel').value,10);
+    const usePass = passToggle.checked && passphrase.value.length>0;
+
+    /* Build the encrypted envelope (plaintext never leaves the browser). */
+    let envelope;
+    if(chosenFile){
+      envelope = { v:1, kind:'file', name:chosenFile.name, data:b64uEncode(new Uint8Array(await chosenFile.arrayBuffer())) };
+    }else{
+      envelope = { v:1, kind:'text', data:b64uEncode(utf8.encode(secretText.value)) };
+    }
+    const rawKey = await generateRawKey();
+    const payload = await encryptEnvelope(envelope, rawKey);
+
+    const meta = { v:1 };
+    if(usePass){ meta.has_passphrase = true; meta.pbkdf2 = await wrapKey(rawKey, passphrase.value); }
+
+    const resp = await fetch('/api/drops', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ payload, ttl, max_reads:maxReads, kind: chosenFile?'file':'text', meta })
+    });
+    if(resp.status===429){ throw new Error('rate_limited'); }
+    if(!resp.ok){ throw new Error('create_failed'); }
+    const data = await resp.json();
+
+    /* Fragment carries the raw key only when no passphrase protects it. */
+    const link = usePass ? data.url : data.url + '#' + b64uEncode(rawKey);
+    resultLink.value = link;
+    resultWarn.textContent = usePass ? T.result_warn_pass : T.result_warn;
+    resultBox.style.display='block';
+    resultLink.focus(); resultLink.select();
+  }catch(err){
+    createError.textContent = (err && err.message==='rate_limited') ? T.rate_limited : T.create_fail;
+    createError.style.display='block';
+  }finally{ busy=false; refreshCreateState(); }
+});
+
+$('copyBtn').addEventListener('click', ()=>copyText(resultLink.value, T.link_copied));
+
+/* ============ READ FLOW ============ */
+/* The fragment is captured on load, then immediately stripped from history
+   so the key never lingers in the URL bar, logs, or screenshots. */
+let fragmentKey = null;
+(function captureAndStripFragment(){
+  if(location.hash.length>1){
+    try{ fragmentKey = b64uDecode(location.hash.slice(1)); }catch(_){ fragmentKey = null; }
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+})();
+
+const revealBtn=$('revealBtn'), revealPane=$('revealPane'), passPromptWrap=$('passPromptWrap'), revealPassphrase=$('revealPassphrase');
+const secretOut=$('secretOut'), doneRow=$('doneRow'), copySecretBtn=$('copySecretBtn');
+const fileOut=$('fileOut'), fileOutName=$('fileOutName'), downloadBtn=$('downloadBtn');
+const errorBox=$('errorBox');
+
+const dropId = (location.pathname.match(/^\/d\/([A-Za-z0-9\-_]{1,64})\/?$/)||[])[1]||'';
+let revealedText=null, revealedFile=null, revealedFileName='file', revealBusy=false;
+
+function showError(){
+  revealPane.style.display='none'; passPromptWrap.style.display='none';
+  secretOut.style.display='none'; doneRow.style.display='none'; fileOut.style.display='none';
+  errorBox.style.display='block';
+}
+
+revealBtn.addEventListener('click', async ()=>{
+  if(revealBusy) return; revealBusy=true; revealBtn.disabled=true;
+  try{
+    const resp = await fetch('/api/drops/'+encodeURIComponent(dropId)+'/read', { method:'POST' });
+    if(resp.status!==200){ showError(); return; }
+    const data = await resp.json();
+    const meta = data.meta || {};
+
+    /* Resolve the data key: fragment first, then passphrase-wrapped key. */
+    let rawKey = fragmentKey;
+    if(!rawKey && meta.has_passphrase){
+      if(passPromptWrap.style.display!=='block'){
+        /* First tap reveals that a passphrase is needed. */
+        passPromptWrap.style.display='block'; revealPassphrase.focus();
+        revealBtn.disabled=false; revealBusy=false; revealBtn.textContent = lang==='id'?'Buka dengan passphrase':'Unlock with passphrase';
+        return;
+      }
+      try{ rawKey = await unwrapKey(meta.pbkdf2, revealPassphrase.value); }
+      catch(_){ revealPassphrase.value=''; revealPassphrase.focus(); toast(T.decrypt_fail); revealBtn.disabled=false; revealBusy=false; return; }
+    }
+    if(!rawKey){ showError(); return; }
+
+    const envelope = await decryptEnvelope(data.payload, rawKey);
+    if(envelope.kind==='file'){
+      revealedFile = b64uDecode(envelope.data); revealedFileName = envelope.name||'download';
+      fileOutName.textContent = revealedFileName+' · '+Math.ceil(revealedFile.length/1024)+' KB';
+      revealPane.style.display='none'; fileOut.style.display='block'; doneRow.style.display='none';
+    }else{
+      revealedText = utf8dec.decode(b64uDecode(envelope.data));
+      secretOut.textContent = revealedText; /* textContent only — never innerHTML */
+      revealPane.style.display='none'; secretOut.style.display='block'; doneRow.style.display='flex';
+    }
+    fragmentKey = null;
+  }catch(err){
+    if(err && (err.name==='OperationError'||err.name==='SyntaxError')){ toast(T.decrypt_fail); revealBtn.disabled=false; revealBusy=false; return; }
+    showError();
+  }
+});
+
+copySecretBtn.addEventListener('click', ()=>{ if(revealedText!=null) copyText(revealedText, T.copied); });
+downloadBtn.addEventListener('click', ()=>{
+  if(!revealedFile) return;
+  const blob = new Blob([revealedFile]);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download=revealedFileName; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 5000);
+});
+
+/* ============ init ============ */
+applyI18n();
+refreshCreateState();
+</script>
+</body>
 </html>
