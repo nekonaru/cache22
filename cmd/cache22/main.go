@@ -17,7 +17,13 @@ import (
 	"github.com/nekonaru/cache22/internal/store"
 )
 
+var version = "dev" // stamped via -ldflags "-X main.version=…"
+
 func main() {
+	if len(os.Args) > 1 && (os.Args[1] == "--version" || os.Args[1] == "-version" || os.Args[1] == "version") {
+		fmt.Printf("cache22 %s\n", version)
+		return
+	}
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, "cache22:", err)
 		os.Exit(1)

@@ -1,0 +1,14 @@
+.git
+.github
+bin
+dist
+*.exe
+*.test
+*.out
+coverage.*
+.env*
+Dockerfile
+.dockerignore
+README.md
+README.id.md
+assets

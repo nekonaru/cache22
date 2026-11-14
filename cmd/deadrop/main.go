@@ -25,6 +25,8 @@ import (
 
 const pbkdf2Iterations = 600_000
 
+var version = "dev" // stamped via -ldflags "-X main.version=…"
+
 type cliConfig struct {
 	server     string
 	ttl        string
@@ -55,6 +57,10 @@ func run() error {
 	}
 	if len(args) > 0 && (args[0] == "help" || args[0] == "-h" || args[0] == "--help") {
 		usage()
+		return nil
+	}
+	if len(args) > 0 && (args[0] == "--version" || args[0] == "-version" || args[0] == "version") {
+		fmt.Printf("deadrop %s\n", version)
 		return nil
 	}
 	return runCreate(args)
