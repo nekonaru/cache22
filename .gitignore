@@ -1,0 +1,21 @@
+# Binaries
+/cache22
+/deadrop
+/bin/
+/dist/
+*.exe
+*.test
+*.out
+
+# Coverage
+coverage.*
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.env.local
