@@ -173,6 +173,13 @@ func (w *nonceWriter) Write(p []byte) (int, error) {
 	return w.ResponseWriter.Write(p)
 }
 
+// Flush implements http.Flusher so upgrade/streaming paths keep working.
+func (w *nonceWriter) Flush() {
+	if f, ok := w.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
 // ---- helpers ----
 
 func newNonce() (string, error) {

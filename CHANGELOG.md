@@ -2,6 +2,14 @@
 
 All notable changes to Cache22 are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project uses [Semantic Versioning](https://semver.org/).
 
+## [1.0.1] — 2026-11-15
+
+### Fixed
+
+- `deadrop`: dangling create flags (e.g. `-ttl` with no value) now return a clean error instead of panicking with an index out of range.
+- Server: `nonceWriter` now implements `http.Flusher` so streaming/upgrade paths cannot be broken by the middleware chain.
+- Web: `<noscript>` fallback explaining that JavaScript is required (all crypto happens in the browser).
+
 ## [1.0.0] — 2026-11-15
 
 First public release.
@@ -31,4 +39,5 @@ First public release.
 - In-memory storage: restart loses all drops.
 - Cannot prevent the recipient from copying the secret after reading.
 
+[1.0.1]: https://github.com/nekonaru/cache22/releases/tag/v1.0.1
 [1.0.0]: https://github.com/nekonaru/cache22/releases/tag/v1.0.0

@@ -85,32 +85,57 @@ The link's fragment (#…) is the decryption key. It is never sent to the server
 `)
 }
 
+// nextFlag returns the value following a flag at position i, never panicking.
+func nextFlag(args []string, i int, name string) (string, error) {
+	if i+1 >= len(args) {
+		return "", fmt.Errorf("%s needs a value", name)
+	}
+	return args[i+1], nil
+}
+
 func parseCreateFlags(args []string) (cliConfig, error) {
 	var c cliConfig
 	for i := 0; i < len(args); i++ {
 		switch args[i] {
 		case "-server":
-			i++
-			if i >= len(args) {
-				return c, errors.New("-server needs a value")
+			v, err := nextFlag(args, i, "-server")
+			if err != nil {
+				return c, err
 			}
-			c.server = args[i]
-		case "-ttl":
 			i++
-			c.ttl = args[i]
+			c.server = v
+		case "-ttl":
+			v, err := nextFlag(args, i, "-ttl")
+			if err != nil {
+				return c, err
+			}
+			i++
+			c.ttl = v
 		case "-max-reads":
+			v, err := nextFlag(args, i, "-max-reads")
+			if err != nil {
+				return c, err
+			}
 			i++
 			var n int
-			if _, err := fmt.Sscanf(args[i], "%d", &n); err != nil {
+			if _, err := fmt.Sscanf(v, "%d", &n); err != nil {
 				return c, fmt.Errorf("-max-reads: %w", err)
 			}
 			c.maxReads = n
 		case "-file":
+			v, err := nextFlag(args, i, "-file")
+			if err != nil {
+				return c, err
+			}
 			i++
-			c.file = args[i]
+			c.file = v
 		case "-passphrase":
+			v, err := nextFlag(args, i, "-passphrase")
+			if err != nil {
+				return c, err
+			}
 			i++
-			c.passphrase = args[i]
+			c.passphrase = v
 		default:
 			return c, fmt.Errorf("unknown flag %q", args[i])
 		}
