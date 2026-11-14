@@ -50,10 +50,10 @@ type Store interface {
 // read-modify-write cycle (decrement remaining reads, maybe delete) that
 // must be atomic.
 type Memory struct {
-	mu        sync.Mutex
-	drops     map[string]*Drop
-	used      int64
-	maxBytes  int64
+	mu       sync.Mutex
+	drops    map[string]*Drop
+	used     int64
+	maxBytes int64
 }
 
 // NewMemory returns a Memory store bounded to maxBytes of decoded payload

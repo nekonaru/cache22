@@ -10,13 +10,13 @@ import (
 // Limiter is a token bucket keyed by an arbitrary string (usually the
 // client IP). It is safe for concurrent use.
 type Limiter struct {
-	mu       sync.Mutex
-	buckets  map[string]*bucket
-	rate     float64 // tokens per second refill
-	burst    float64 // bucket capacity
-	now      func() time.Time
-	idleTTL  time.Duration
-	lastGC   time.Time
+	mu      sync.Mutex
+	buckets map[string]*bucket
+	rate    float64 // tokens per second refill
+	burst   float64 // bucket capacity
+	now     func() time.Time
+	idleTTL time.Duration
+	lastGC  time.Time
 }
 
 type bucket struct {

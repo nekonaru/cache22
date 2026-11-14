@@ -188,11 +188,11 @@ func runCreate(args []string) error {
 		meta["pbkdf2"] = wrap
 	}
 	body, err := json.Marshal(map[string]any{
-		"payload":    payload,
-		"ttl":        cfg.ttl,
-		"max_reads":  cfg.maxReads,
-		"kind":       kind,
-		"meta":       meta,
+		"payload":   payload,
+		"ttl":       cfg.ttl,
+		"max_reads": cfg.maxReads,
+		"kind":      kind,
+		"meta":      meta,
 	})
 	if err != nil {
 		return err
@@ -348,7 +348,7 @@ func resolveKey(meta json.RawMessage, fragment string) ([]byte, error) {
 		return crypt.DecodeKey(fragment)
 	}
 	var m struct {
-		HasPassphrase bool           `json:"has_passphrase"`
+		HasPassphrase bool            `json:"has_passphrase"`
 		PBKDF2        *crypt.MetaWrap `json:"pbkdf2"`
 	}
 	if len(meta) > 0 {

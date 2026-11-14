@@ -245,8 +245,8 @@ func TestSecurityHeadersPresent(t *testing.T) {
 
 func TestRateLimited(t *testing.T) {
 	cfg := testConfig()
-	cfg.RatePerMin = 60   // 1/s
-	cfg.Burst = 2         // capacity 2
+	cfg.RatePerMin = 60 // 1/s
+	cfg.Burst = 2       // capacity 2
 	st := store.NewMemory(0)
 	s := New(cfg, st, slog.New(slog.NewTextHandler(io.Discard, nil)), func() time.Time { return testNow })
 	body := `{"payload":"` + validPayload + `","ttl":"1h","kind":"text"}`

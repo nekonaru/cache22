@@ -25,13 +25,13 @@ import (
 )
 
 const (
-	Version          = 1
-	keyBytes         = 32
-	ivBytes          = 12
-	saltBytes        = 16
-	maxIterations    = 5_000_000 // guard against hostile meta
-	kindText         = "text"
-	kindFile         = "file"
+	Version       = 1
+	keyBytes      = 32
+	ivBytes       = 12
+	saltBytes     = 16
+	maxIterations = 5_000_000 // guard against hostile meta
+	kindText      = "text"
+	kindFile      = "file"
 )
 
 // ErrDecrypt indicates authentication failed (wrong key or tampering).
@@ -270,7 +270,7 @@ func b64uEncode(b []byte) string {
 			buf.WriteByte(alphabet[(n>>12)&63])
 			buf.WriteByte(alphabet[(n>>6)&63])
 		default:
-			n = uint32(b[i])<<16
+			n = uint32(b[i]) << 16
 			buf.WriteByte(alphabet[(n>>18)&63])
 			buf.WriteByte(alphabet[(n>>12)&63])
 		}

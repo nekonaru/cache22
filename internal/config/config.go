@@ -13,14 +13,14 @@ import (
 
 // Config holds all knobs for the server.
 type Config struct {
-	Addr         string // listen address, e.g. ":8080"
-	BaseURL      string // public base URL used in created links, e.g. "https://cache22.example.com"
-	MaxTextBytes int    // max decoded payload size for kind=text
-	MaxFileBytes int    // max decoded payload size for kind=file
-	MaxTotalBytes int64  // global memory budget for the in-memory store
-	RatePerMin   float64 // per-IP sustained refill, tokens per minute
-	Burst        float64 // per-IP burst size
-	TrustProxy   bool   // trust X-Forwarded-For for client IP (enable only behind a trusted proxy)
+	Addr          string  // listen address, e.g. ":8080"
+	BaseURL       string  // public base URL used in created links, e.g. "https://cache22.example.com"
+	MaxTextBytes  int     // max decoded payload size for kind=text
+	MaxFileBytes  int     // max decoded payload size for kind=file
+	MaxTotalBytes int64   // global memory budget for the in-memory store
+	RatePerMin    float64 // per-IP sustained refill, tokens per minute
+	Burst         float64 // per-IP burst size
+	TrustProxy    bool    // trust X-Forwarded-For for client IP (enable only behind a trusted proxy)
 }
 
 func envStr(key, def string) string {
