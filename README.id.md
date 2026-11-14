@@ -188,6 +188,10 @@ Checklist verifikasi manual:
 - Notifikasi “sudah dibaca” berbasis webhook / Telegram (dengan proteksi SSRF: alamat privat/loopback ditolak)
 - Pembatasan tarif / CAPTCHA ringan untuk demo publik
 
+## Kontribusi & keamanan
+
+Kontribusi: [CONTRIBUTING.md](CONTRIBUTING.md) · Laporan kerentanan: [SECURITY.md](SECURITY.md) · Perubahan: [CHANGELOG.md](CHANGELOG.md)
+
 ## Lisensi
 
 [MIT](LICENSE) © 2026 Niko (nekonaru)

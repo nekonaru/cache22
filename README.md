@@ -188,6 +188,10 @@ Manual verification checklist:
 - Opt-in webhook / Telegram “message was read” notification (with SSRF guards: private/loopback addresses refused)
 - Optional public-demo rate shaping / lightweight CAPTCHA
 
+## Contributing & security
+
+Contributions: [CONTRIBUTING.md](CONTRIBUTING.md) · Vulnerability reports: [SECURITY.md](SECURITY.md) · Changes: [CHANGELOG.md](CHANGELOG.md)
+
 ## License
 
 [MIT](LICENSE) © 2026 Niko (nekonaru)
