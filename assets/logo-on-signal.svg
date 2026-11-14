@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 260">
+  <rect width="760" height="260" fill="#FFB020"/>
+  <g transform="translate(48,82)">
+    <path d="M72.6 65.2A30 30 0 1 1 72.6 30.8" fill="none" stroke="#14161C" stroke-width="15" stroke-linecap="round"/>
+    <circle cx="48" cy="43" r="8.2" fill="#14161C"/>
+    <path d="M43.6 49.6 39.2 69.5 H56.8 L52.4 49.6 Z" fill="#14161C"/>
+    <circle cx="90" cy="48" r="5.4" fill="#14161C"/>
+    <circle cx="103" cy="48" r="3.6" fill="#3A3F4D"/>
+    <circle cx="113.5" cy="48" r="2.4" fill="#5A616E"/>
+  </g>
+  <text x="228" y="140" font-family="'Avenir Next','Segoe UI',Helvetica,Arial,sans-serif" font-weight="800" font-size="96" letter-spacing="-3" fill="#14161C">cache22</text>
+  <text x="230" y="196" font-family="'Avenir Next','Segoe UI',Helvetica,Arial,sans-serif" font-size="22" fill="#3A2A05">Kirim sekali. Hilang setelah dibaca.</text>
+</svg>
