@@ -2,9 +2,22 @@
 
 Semua perubahan penting di Cache22 didokumentasikan di sini. Berkas English adalah sumber kebenaran; `CHANGELOG.md` adalah terjemahan Indonesia.
 
+## v1.0.3 - 2026-11-15
+
+Rilis performa dan hardening: respons kini ter-gzip ke sekitar sepertiga ukuran aslinya, dan alur reveal dengan passphrase tidak lagi kehilangan rahasia sebelum passphrase dimasukkan.
+
+### Perbaikan bug
+
+- **Web UI.** Untuk drop dengan passphrase, klik pertama sebelumnya mengonsumsi drop tapi pengguna tidak bisa mengulang passphrase saat typo; payload kini ditahan antar klik sehingga passphrase bisa diulang tanpa refetch. Error menyesatkan untuk read yang kena rate limit sekarang jadi toast, bukan pesan palsu "sudah dibaca".
+
+### Peningkatan
+
+- **Gzip.** Respons HTML dan JSON dikirim dengan kompresi gzip saat klien mendukung (10,3 KB wire untuk halaman 31 KB, Vary: Accept-Encoding).
+- **Header keamanan.** Menambahkan Cross-Origin-Opener-Policy, Cross-Origin-Resource-Policy, dan Permissions-Policy di setiap respons. HSTS dikirim hanya di belakang -trust-proxy.
+
 ## v1.0.2 - 2026-11-15
 
-Rilis perbaikan dan dokumentasi: Content Security Policy tidak lagi memblokir render aplikasi, dan dokumentasi repo mengikuti standar dokumentasi proyek.
+Rilis perbaikan dan dokumentasi: Content Security Policy tidak lagi memblokir halaman, dan dokumentasi repo mengikuti standar dokumentasi proyek.
 
 ### Perbaikan bug
 
@@ -14,7 +27,7 @@ Rilis perbaikan dan dokumentasi: Content Security Policy tidak lagi memblokir re
 
 ### Peningkatan
 
-- **README.** Kedua berkas disusun ulang sesuai urutan section standar, isi English dan Indonesia selalu sinkron, dan disertai daftar isi.
+- **README.** Kedua berkas disusun ulang sesuai urutan section standar dengan section identik di kedua bahasa, dan disertai daftar isi.
 - **Changelog.** Dipisah menjadi berkas English dan Indonesia dengan konten identik.
 - **Metadata repo.** Deskripsi jadi satu kalimat tanpa nama tool, dan topics ditinjau ulang.
 
@@ -50,6 +63,7 @@ Rilis publik pertama Cache22: rahasia sekali baca yang terhapus setelah dibaca, 
 - **Penyimpanan in-memory.** Restart menghapus semua drop; penyimpanan persisten ada di roadmap.
 - **Perlindungan salinan.** Layanan tidak bisa mencegah penerima menyalin atau memotret rahasia setelah dibuka.
 
+[v1.0.3]: https://github.com/nekonaru/cache22/compare/v1.0.2...v1.0.3
 [v1.0.2]: https://github.com/nekonaru/cache22/compare/v1.0.1...v1.0.2
 [v1.0.1]: https://github.com/nekonaru/cache22/compare/v1.0.0...v1.0.1
 [v1.0.0]: https://github.com/nekonaru/cache22/releases/tag/v1.0.0

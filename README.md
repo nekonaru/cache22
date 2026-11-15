@@ -93,6 +93,7 @@
 | **Single static binary** | Go standard library only; the UI is embedded in the binary |
 | **Docker image** | Distroless, non-root image ready behind your reverse proxy |
 | **In-memory store** | Global byte budget; expired drops are swept every minute |
+| **Gzip compression** | Pages and API responses serve as gzip when the client accepts it (about a third of the bytes) |
 | **Per-IP rate limiting** | Built-in token bucket, tuned by flag or env |
 
 ### The interface
