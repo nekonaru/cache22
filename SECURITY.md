@@ -25,7 +25,7 @@ Cache22 is a zero-knowledge, burn-after-reading secret sharing service. Reports 
 
 | Version | Supported |
 | --- | --- |
-| v1.0.x | Yes |
+| v1.1.x | Yes |
 | < v1.0.0 | No |
 
 ## Safe use
