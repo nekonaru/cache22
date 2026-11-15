@@ -234,7 +234,7 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 }
 
 // writeNotFound is the single uniform failure for every read-path problem:
-// unknown id, expired drop, exhausted reads, malformed id — byte-identical.
+// unknown id, expired drop, exhausted reads, malformed id - byte-identical.
 func writeNotFound(w http.ResponseWriter) {
 	writeJSON(w, http.StatusNotFound, map[string]string{"error": "not_found"})
 }

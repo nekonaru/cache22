@@ -36,9 +36,9 @@ func TestDecryptJSVector(t *testing.T) {
 func TestRoundTrip(t *testing.T) {
 	for _, tc := range []struct{ kind, name, text string }{
 		{"text", "", "rahasia sekali baca"},
-		{"text", "", "unicode ✓ 秘密 🔐"},
+		{"text", "", "unicode âœ“ ç§˜å¯† ðŸ”"},
 		{"file", "catatan rahasia.txt", "file body\nwith lines"},
-		{"file", "very-long-name-🔥.bin", string(bytes.Repeat([]byte{0x00, 0xff, 0x10}, 4096))},
+		{"file", "very-long-name-ðŸ”¥.bin", string(bytes.Repeat([]byte{0x00, 0xff, 0x10}, 4096))},
 	} {
 		key, err := GenerateKey()
 		if err != nil {
