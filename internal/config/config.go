@@ -17,10 +17,11 @@ type Config struct {
 	BaseURL       string  // public base URL used in created links, e.g. "https://cache22.example.com"
 	MaxTextBytes  int     // max decoded payload size for kind=text
 	MaxFileBytes  int     // max decoded payload size for kind=file
-	MaxTotalBytes int64   // global memory budget for the in-memory store
+	MaxTotalBytes int64   // global storage budget in bytes (applies to both backends)
 	RatePerMin    float64 // per-IP sustained refill, tokens per minute
 	Burst         float64 // per-IP burst size
 	TrustProxy    bool    // trust X-Forwarded-For for client IP (enable only behind a trusted proxy)
+	Data          string  // bbolt file path; empty means pure in-memory storage
 }
 
 func envStr(key, def string) string {
@@ -78,6 +79,7 @@ func Parse(fs *flag.FlagSet, args []string) (Config, error) {
 	fs.Float64Var(&c.RatePerMin, "rate-per-min", envFloat("CACHE22_RATE_PER_MIN", 30), "per-IP sustained request rate per minute (env CACHE22_RATE_PER_MIN)")
 	fs.Float64Var(&c.Burst, "burst", envFloat("CACHE22_BURST", 10), "per-IP burst allowance (env CACHE22_BURST)")
 	fs.BoolVar(&c.TrustProxy, "trust-proxy", envBool("CACHE22_TRUST_PROXY", false), "trust X-Forwarded-For for client IP; enable only behind a trusted proxy (env CACHE22_TRUST_PROXY)")
+	fs.StringVar(&c.Data, "data", envStr("CACHE22_DATA", "cache22.db"), "bbolt data file path (e.g. /var/lib/cache22/cache22.db); set to \"-\" for in-memory storage (env CACHE22_DATA)")
 	if err := fs.Parse(args); err != nil {
 		return Config{}, err
 	}

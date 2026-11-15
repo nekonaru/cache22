@@ -92,7 +92,7 @@
 |---------|-------------|
 | **Single static binary** | Go standard library only; the UI is embedded in the binary |
 | **Docker image** | Distroless, non-root image ready behind your reverse proxy |
-| **In-memory store** | Global byte budget; expired drops are swept every minute |
+| **Persistent storage by default** | bbolt database; survives restarts; `-data -` switches to ephemeral in-memory mode |
 | **Gzip compression** | Pages and API responses serve as gzip when the client accepts it (about a third of the bytes) |
 | **Per-IP rate limiting** | Built-in token bucket, tuned by flag or env |
 
@@ -230,6 +230,7 @@ make build     # bin/cache22 and bin/deadrop
 |------|-----|---------|
 | `-addr` | `CACHE22_ADDR` | `:8080` |
 | `-base-url` | `CACHE22_BASE_URL` | `http://localhost:8080` |
+| `-data` | `CACHE22_DATA` | `cache22.db` |
 | `-max-text-bytes` | `CACHE22_MAX_TEXT_BYTES` | `65536` |
 | `-max-file-bytes` | `CACHE22_MAX_FILE_BYTES` | `2097152` |
 | `-max-total-bytes` | `CACHE22_MAX_TOTAL_BYTES` | `67108864` |
@@ -238,6 +239,8 @@ make build     # bin/cache22 and bin/deadrop
 | `-trust-proxy` | `CACHE22_TRUST_PROXY` | `false` |
 
 `-trust-proxy` makes the server honor `X-Forwarded-For` for rate limiting; enable it only behind a trusted reverse proxy. Every response carries `Cache-Control: no-store`, `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, `X-Robots-Tag: noindex` and a strict `Content-Security-Policy` with a per-request nonce.
+
+`-data` points to the bbolt database file; set it to `-` to force pure in-memory storage (no persistence). The database is created with owner-only permissions (`0600`); its rows contain only ciphertext and passphrase-wrapped meta, never plaintext or keys.
 
 ---
 
@@ -253,7 +256,7 @@ cache22/
 │   ├── crypt/                # CLI-side crypto, mirrors the browser
 │   ├── ratelimit/            # per-IP token bucket
 │   ├── server/               # handlers, headers, logging
-│   └── store/                # Store interface and in-memory implementation
+│   └── store/                # Store: interface, in-memory and bbolt
 ├── web/
 │   ├── index.html            # the single-page UI
 │   └── web.go                # go:embed
@@ -344,7 +347,7 @@ Cache22 deletes the secret after it is read, but it cannot control what the reci
 <details>
 <summary><b>Does the secret survive a server restart?</b></summary>
 
-No. The MVP stores drops in memory with a global size cap; a restart deletes all of them. Persistent storage is on the roadmap.
+It survives a restart: drop data lives on disk in the bbolt database (owner-only permissions, ciphertext only). If you run with `-data -`, everything is held in memory and a restart wipes it.
 </details>
 
 <details>

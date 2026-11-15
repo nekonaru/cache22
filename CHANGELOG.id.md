@@ -1,6 +1,21 @@
 # Changelog
 
-Semua perubahan penting di Cache22 didokumentasikan di sini. Berkas English adalah sumber kebenaran; `CHANGELOG.md` adalah terjemahan Indonesia.
+Semua perubahan penting di Cache22 didokumentasikan di sini. `CHANGELOG.md` (English) adalah sumber kebenaran; berkas ini terjemahan Indonesia.
+
+## v1.1.0 - 2026-11-15
+
+Penyimpanan persisten secara default: drop kini selamat dari restart lewat file database bbolt (default `cache22.db`, izin owner-only), menyelesaikan item roadmap penyimpanan persisten.
+
+### Peningkatan
+
+- **Penyimpanan.** Flag baru `-data` / `CACHE22_DATA` memilih file bbolt persisten (default `cache22.db`); `-` memaksa mode in-memory seperti sebelumnya. `Consume` sekarang berjalan di dalam satu transaksi tulis bbolt. Docker image menset `CACHE22_DATA=/data/cache22.db` dan menyediakan `VOLUME ["/data"]` yang dimiliki user non-root.
+- **Dockerfile.** Kini menyalin `go.sum` dan membuat direktori `/data` dengan ownership non-root; `.gitignore` mencakup `cache22.db`.
+
+### Keterbatasan yang diketahui
+
+- **Restart tidak menghapus drop** (kecuali `-data -` diset eksplisit).
+- **Link hidup dengan `#fragment` adalah kapabilitas baca** sampai drop dibakar; kunci passphrase ada untuk ini.
+- **Cache22 tidak bisa mencegah penerima** menyalin atau memotret plaintext setelah reveal.
 
 ## v1.0.3 - 2026-11-15
 
@@ -63,6 +78,7 @@ Rilis publik pertama Cache22: rahasia sekali baca yang terhapus setelah dibaca, 
 - **Penyimpanan in-memory.** Restart menghapus semua drop; penyimpanan persisten ada di roadmap.
 - **Perlindungan salinan.** Layanan tidak bisa mencegah penerima menyalin atau memotret rahasia setelah dibuka.
 
+[v1.1.0]: https://github.com/nekonaru/cache22/compare/v1.0.3...v1.1.0
 [v1.0.3]: https://github.com/nekonaru/cache22/compare/v1.0.2...v1.0.3
 [v1.0.2]: https://github.com/nekonaru/cache22/compare/v1.0.1...v1.0.2
 [v1.0.1]: https://github.com/nekonaru/cache22/compare/v1.0.0...v1.0.1

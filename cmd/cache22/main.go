@@ -37,7 +37,20 @@ func run() error {
 	}
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
 
-	st := store.NewMemory(cfg.MaxTotalBytes)
+	var st store.Store
+	var closer func() error
+	if cfg.Data != "" {
+		bs, err := store.NewBolt(cfg.Data, cfg.MaxTotalBytes)
+		if err != nil {
+			return err
+		}
+		st = bs
+		closer = bs.Close
+		logger.Info("storage: bbolt", "path", cfg.Data)
+	} else {
+		st = store.NewMemory(cfg.MaxTotalBytes)
+		logger.Info("storage: in-memory (data is lost on restart; set -data/CACHE22_DATA for persistence)")
+	}
 	srv := server.New(cfg, st, logger, time.Now)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -81,5 +94,10 @@ func run() error {
 		return fmt.Errorf("graceful shutdown: %w", err)
 	}
 	<-sweeperDone
+	if closer != nil {
+		if err := closer(); err != nil {
+			logger.Error("store close", "err", err)
+		}
+	}
 	return nil
 }
