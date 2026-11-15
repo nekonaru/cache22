@@ -2,6 +2,21 @@
 
 All notable changes to Cache22 are documented here. The English file is the source of truth; `CHANGELOG.id.md` is the Indonesian translation.
 
+## v1.1.0 - 2026-11-15
+
+Persistent storage by default: drops now survive a restart via a bbolt database file (default `cache22.db`, owner-only permissions), completing the roadmap item for persistent storage.
+
+### Improvements
+
+- **Storage.** New `-data` / `CACHE22_DATA` flag selects a persistent bbolt file (default `cache22.db`); `-` forces pure in-memory mode as before. `Consume` now happens inside a single bbolt write transaction. Docker image sets `CACHE22_DATA=/data/cache22.db` and ships a `VOLUME ["/data"]` owned by the non-root user.
+- **Dockerfile.** Now copies `go.sum` and creates `/data` owned by the non-root user; `gitignore` covers `cache22.db`.
+
+### Known limitations
+
+- **Restart no longer loses drops** (unless `-data -` is set explicitly).
+- **A live link with its `#fragment` is a read capability** until the drop is burned; the passphrase lock exists for this.
+- **Cache22 cannot stop the recipient** from copying or photographing the plaintext after reveal.
+
 ## v1.0.3 - 2026-11-15
 
 Performance and hardening release: responses now gzip to about a third of the original size and the passphrase reveal flow no longer loses the secret before the passphrase is entered.
@@ -63,6 +78,7 @@ First public release of Cache22: one-time secrets that burn after reading, with 
 - **In-memory storage.** A restart deletes all drops; persistent storage is tracked on the roadmap.
 - **Copy protection.** The service cannot stop the recipient from copying or photographing the secret after reading.
 
+[v1.1.0]: https://github.com/nekonaru/cache22/compare/v1.0.3...v1.1.0
 [v1.0.3]: https://github.com/nekonaru/cache22/compare/v1.0.2...v1.0.3
 [v1.0.2]: https://github.com/nekonaru/cache22/compare/v1.0.1...v1.0.2
 [v1.0.1]: https://github.com/nekonaru/cache22/compare/v1.0.0...v1.0.1

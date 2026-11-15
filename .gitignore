@@ -6,6 +6,7 @@
 *.exe
 *.test
 *.out
+cache22.db
 
 # Coverage
 coverage.*

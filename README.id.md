@@ -92,7 +92,7 @@
 |-------|-----------|
 | **Satu binary statis** | Hanya Go standard library; UI tertanam di binary |
 | **Docker image** | Distroless, non-root, siap di belakang reverse proxy |
-| **Store in-memory** | Anggaran byte global; drop kedaluwarsa disapu tiap menit |
+| **Penyimpanan persisten default** | bbolt database; selamat dari restart; `-data -` untuk mode memori sementara |
 | **Kompresi gzip** | Halaman dan respons API dikirim sebagai gzip saat klien mendukung (sekitar sepertiga byte) |
 | **Rate limiting per IP** | Token bucket bawaan, disetel lewat flag atau env |
 
@@ -230,6 +230,7 @@ make build     # bin/cache22 dan bin/deadrop
 |------|-----|---------|
 | `-addr` | `CACHE22_ADDR` | `:8080` |
 | `-base-url` | `CACHE22_BASE_URL` | `http://localhost:8080` |
+| `-data` | `CACHE22_DATA` | `cache22.db` |
 | `-max-text-bytes` | `CACHE22_MAX_TEXT_BYTES` | `65536` |
 | `-max-file-bytes` | `CACHE22_MAX_FILE_BYTES` | `2097152` |
 | `-max-total-bytes` | `CACHE22_MAX_TOTAL_BYTES` | `67108864` |
@@ -238,6 +239,8 @@ make build     # bin/cache22 dan bin/deadrop
 | `-trust-proxy` | `CACHE22_TRUST_PROXY` | `false` |
 
 `-trust-proxy` membuat server mempercayai `X-Forwarded-For` untuk rate limiting; aktifkan hanya di belakang reverse proxy yang tepercaya. Semua respons membawa `Cache-Control: no-store`, `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, `X-Robots-Tag: noindex`, dan `Content-Security-Policy` ketat dengan nonce per request.
+
+`-data` menunjuk ke file database bbolt; set menjadi `-` untuk memaksa penyimpanan in-memory (tanpa persistensi). Database dibuat dengan izin owner-only (`0600`); isinya hanya ciphertext dan meta terbungkus passphrase, tidak pernah plaintext atau kunci.
 
 ---
 
@@ -253,7 +256,7 @@ cache22/
 │   ├── crypt/                # kripto sisi CLI, cermin browser
 │   ├── ratelimit/            # token bucket per IP
 │   ├── server/               # handler, header, logging
-│   └── store/                # interface Store dan implementasi memori
+│   └── store/                # interface Store, implementasi memori dan bbolt
 ├── web/
 │   ├── index.html            # UI satu halaman
 │   └── web.go                # go:embed
@@ -344,7 +347,7 @@ Cache22 menghapus rahasia setelah dibaca, tapi tidak bisa mengendalikan apa yang
 <details>
 <summary><b>Apakah rahasia selamat dari restart server?</b></summary>
 
-Tidak. MVP menyimpan drop di memori dengan batas ukuran global; restart menghapus semuanya. Penyimpanan persisten ada di roadmap.
+Ya. Data drop disimpan di disk dalam database bbolt (izin owner-only, hanya ciphertext). Jika dijalankan dengan `-data -`, semuanya disimpan di memori dan restart menghapusnya.
 </details>
 
 <details>
