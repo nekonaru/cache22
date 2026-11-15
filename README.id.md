@@ -93,6 +93,7 @@
 | **Satu binary statis** | Hanya Go standard library; UI tertanam di binary |
 | **Docker image** | Distroless, non-root, siap di belakang reverse proxy |
 | **Store in-memory** | Anggaran byte global; drop kedaluwarsa disapu tiap menit |
+| **Kompresi gzip** | Halaman dan respons API dikirim sebagai gzip saat klien mendukung (sekitar sepertiga byte) |
 | **Rate limiting per IP** | Token bucket bawaan, disetel lewat flag atau env |
 
 ### Antarmuka

@@ -2,9 +2,22 @@
 
 All notable changes to Cache22 are documented here. The English file is the source of truth; `CHANGELOG.id.md` is the Indonesian translation.
 
+## v1.0.3 - 2026-11-15
+
+Performance and hardening release: responses now gzip to about a third of the original size and the passphrase reveal flow no longer loses the secret before the passphrase is entered.
+
+### Bug fixes
+
+- **Web UI.** For passphrase protected drops, the first click previously consumed the drop but the user could not retry the passphrase after a typo; the payload is now held across clicks so the passphrase can be retried without a refetch. The misleading error for rate limited reads is now a toast, not a fake "already read" message.
+
+### Improvements
+
+- **Gzip.** HTML and JSON responses are served gzip compressed when the client accepts it (10.3 KB wire for the 31 KB page, Vary: Accept-Encoding).
+- **Security headers.** Added Cross-Origin-Opener-Policy, Cross-Origin-Resource-Policy and Permissions-Policy on every response. HSTS is emitted only behind -trust-proxy.
+
 ## v1.0.2 - 2026-11-15
 
-Fix and documentation release: the Content Security Policy no longer blocks app rendering, and the repository documentation follows the project documentation standard.
+Fix and documentation release: the Content Security Policy no longer blocks the page, and the repository documentation follows the project documentation standard.
 
 ### Bug fixes
 
@@ -50,6 +63,7 @@ First public release of Cache22: one-time secrets that burn after reading, with 
 - **In-memory storage.** A restart deletes all drops; persistent storage is tracked on the roadmap.
 - **Copy protection.** The service cannot stop the recipient from copying or photographing the secret after reading.
 
+[v1.0.3]: https://github.com/nekonaru/cache22/compare/v1.0.2...v1.0.3
 [v1.0.2]: https://github.com/nekonaru/cache22/compare/v1.0.1...v1.0.2
 [v1.0.1]: https://github.com/nekonaru/cache22/compare/v1.0.0...v1.0.1
 [v1.0.0]: https://github.com/nekonaru/cache22/releases/tag/v1.0.0

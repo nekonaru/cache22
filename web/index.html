@@ -537,6 +537,10 @@ const errorBox=$('errorBox');
 
 const dropId = (location.pathname.match(/^\/d\/([A-Za-z0-9\-_]{1,64})\/?$/)||[])[1]||'';
 let revealedText=null, revealedFile=null, revealedFileName='file', revealBusy=false;
+/* Stash the consumed payload across clicks: burn-on-read means the drop is
+   gone after the first POST, so retrying passphrases must reuse the stashed
+   payload, never refetch (a refetch would 404 and orphan the secret). */
+let pendingData = null;
 
 function showError(){
   revealPane.style.display='none'; passPromptWrap.style.display='none';
@@ -547,9 +551,14 @@ function showError(){
 revealBtn.addEventListener('click', async ()=>{
   if(revealBusy) return; revealBusy=true; revealBtn.disabled=true;
   try{
-    const resp = await fetch('/api/drops/'+encodeURIComponent(dropId)+'/read', { method:'POST' });
-    if(resp.status!==200){ showError(); return; }
-    const data = await resp.json();
+    /* First click: consume the drop. Later clicks (passphrase) reuse the payload. */
+    if(!pendingData){
+      const resp = await fetch('/api/drops/'+encodeURIComponent(dropId)+'/read', { method:'POST' });
+      if(resp.status===429){ toast(T.rate_limited); revealBtn.disabled=false; revealBusy=false; return; }
+      if(resp.status!==200){ showError(); return; }
+      pendingData = await resp.json();
+    }
+    const data = pendingData;
     const meta = data.meta || {};
 
     /* Resolve the data key: fragment first, then passphrase-wrapped key. */

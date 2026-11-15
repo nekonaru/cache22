@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/base64"
 	"encoding/json"
 	"io"
@@ -270,6 +271,68 @@ func TestHealthz(t *testing.T) {
 	rr := do(t, s, http.MethodGet, "/healthz", nil, nil)
 	if rr.Code != http.StatusOK || rr.Body.String() != "ok" {
 		t.Fatalf("healthz = %d %q", rr.Code, rr.Body.String())
+	}
+}
+
+func TestGzipCompression(t *testing.T) {
+	s := testServer(t)
+	// Accepts gzip: body must be compressed and carry Content-Encoding.
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.RemoteAddr = "203.0.113.1:4321"
+	req.Header.Set("Accept-Encoding", "gzip")
+	rr := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rr, req)
+	if got := rr.Header().Get("Content-Encoding"); got != "gzip" {
+		t.Fatalf("Content-Encoding = %q, want gzip (page is HTML)", got)
+	}
+	zr, err := gzip.NewReader(bytes.NewReader(rr.Body.Bytes()))
+	if err != nil {
+		t.Fatalf("gzip reader: %v", err)
+	}
+	decompressed, err := io.ReadAll(zr)
+	if err != nil {
+		t.Fatalf("gunzip: %v", err)
+	}
+	if !bytes.Contains(decompressed, []byte("cache")) {
+		t.Fatal("decompressed page does not look like the homepage")
+	}
+	if vary := rr.Header().Get("Vary"); vary != "Accept-Encoding" {
+		t.Fatalf("Vary = %q, want Accept-Encoding", vary)
+	}
+
+	// Does not accept gzip: identity response, no header.
+	rr2 := do(t, s, http.MethodGet, "/", nil, nil)
+	if got := rr2.Header().Get("Content-Encoding"); got != "" {
+		t.Fatalf("identity client got Content-Encoding %q", got)
+	}
+
+	// JSON API: gzip applies as well.
+	create := func() *httptest.ResponseRecorder {
+		r := httptest.NewRequest(http.MethodPost, "/api/drops", strings.NewReader(`{"payload":"`+validPayload+`","ttl":"1h","kind":"text"}`))
+		r.RemoteAddr = "203.0.113.1:4321"
+		r.Header.Set("Accept-Encoding", "gzip")
+		r.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		s.Handler().ServeHTTP(rec, r)
+		return rec
+	}
+	rr3 := create()
+	if got := rr3.Header().Get("Content-Encoding"); got != "gzip" {
+		t.Fatalf("API Content-Encoding = %q, want gzip", got)
+	}
+}
+
+func TestNewSecurityHeaders(t *testing.T) {
+	s := testServer(t)
+	rr := do(t, s, http.MethodGet, "/", nil, nil)
+	for _, h := range []string{"Cross-Origin-Opener-Policy", "Cross-Origin-Resource-Policy", "Permissions-Policy"} {
+		if rr.Header().Get(h) == "" {
+			t.Fatalf("missing header %s", h)
+		}
+	}
+	// HSTS must NOT be set on plain HTTP (default config has TrustProxy=false).
+	if got := rr.Header().Get("Strict-Transport-Security"); got != "" {
+		t.Fatalf("HSTS must be absent without -trust-proxy, got %q", got)
 	}
 }
 
