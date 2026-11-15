@@ -7,6 +7,7 @@ package server
 
 import (
 	"bytes"
+	"compress/gzip"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
@@ -124,9 +125,18 @@ func (s *Server) withMiddleware(next http.Handler) http.Handler {
 			return
 		}
 		sw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
-		setSecurityHeaders(sw, nonce)
+		setSecurityHeaders(sw, nonce, s.cfg.TrustProxy)
 
-		next.ServeHTTP(&nonceWriter{ResponseWriter: sw, nonce: nonce}, r)
+		// Wrap the response in a gzip writer only when the client accepts
+		// gzip; the decision itself is made lazily on the first Write so it
+		// can see the Content-Type each handler actually sets.
+		var inner http.ResponseWriter = sw
+		gzipWriter := &gzipResponseWriter{ResponseWriter: sw, sw: sw, reqAcceptsGzip: strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")}
+		inner = gzipWriter
+		next.ServeHTTP(&nonceWriter{ResponseWriter: inner, nonce: nonce}, r)
+		if gzipWriter.gz != nil {
+			_ = gzipWriter.gz.Close()
+		}
 
 		path := r.Pattern
 		if path == "" {
@@ -141,12 +151,20 @@ func (s *Server) withMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func setSecurityHeaders(w http.ResponseWriter, nonce string) {
+func setSecurityHeaders(w http.ResponseWriter, nonce string, trustProxy bool) {
 	h := w.Header()
 	h.Set("Cache-Control", "no-store")
 	h.Set("Referrer-Policy", "no-referrer")
 	h.Set("X-Content-Type-Options", "nosniff")
 	h.Set("X-Robots-Tag", "noindex")
+	h.Set("Cross-Origin-Opener-Policy", "same-origin")
+	h.Set("Cross-Origin-Resource-Policy", "same-origin")
+	h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), interest-cohort=()")
+	if trustProxy {
+		// HSTS only when the deployment terminates TLS ahead of us (the
+		// standard, documented way to run this app). Never over plain HTTP.
+		h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+	}
 	h.Set("Content-Security-Policy", strings.Join([]string{
 		"default-src 'none'",
 		fmt.Sprintf("script-src 'nonce-%s'", nonce),
@@ -157,6 +175,73 @@ func setSecurityHeaders(w http.ResponseWriter, nonce string) {
 		"form-action 'none'",
 		"frame-ancestors 'none'",
 	}, "; "))
+}
+
+// gzipResponseWriter decides lazily, on first write or WriteHeader, whether
+// to encode this response with gzip. Eligibility is based on the response
+// Content-Type so unknown or binary routes pass through untouched.
+type gzipResponseWriter struct {
+	http.ResponseWriter
+	sw             *statusWriter
+	reqAcceptsGzip bool
+	gzipOn         bool
+	decided        bool
+	gz             *gzip.Writer
+}
+
+func isCompressibleCT(ct string) bool {
+	ct = strings.ToLower(ct)
+	for _, frag := range []string{"text/html", "text/plain", "application/json", "image/svg+xml"} {
+		if strings.Contains(ct, frag) {
+			return true
+		}
+	}
+	return false
+}
+
+func (w *gzipResponseWriter) decide() {
+	if w.decided {
+		return
+	}
+	w.decided = true
+	if w.reqAcceptsGzip {
+		w.Header().Add("Vary", "Accept-Encoding")
+	}
+	if !w.reqAcceptsGzip {
+		return
+	}
+	if isCompressibleCT(w.Header().Get("Content-Type")) {
+		w.gzipOn = true
+		w.Header().Set("Content-Encoding", "gzip")
+	}
+}
+
+func (w *gzipResponseWriter) WriteHeader(code int) {
+	w.decide()
+	if w.gzipOn && w.gz == nil {
+		w.gz = gzip.NewWriter(w.ResponseWriter)
+	}
+	w.sw.WriteHeader(code)
+}
+
+func (w *gzipResponseWriter) Write(p []byte) (int, error) {
+	w.decide()
+	if w.gzipOn && w.gz == nil {
+		w.gz = gzip.NewWriter(w.ResponseWriter)
+	}
+	if w.gz != nil {
+		return w.gz.Write(p)
+	}
+	return w.ResponseWriter.Write(p)
+}
+
+func (w *gzipResponseWriter) Flush() {
+	if w.gz != nil {
+		_ = w.gz.Flush()
+	}
+	if f, ok := w.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
 }
 
 // nonceWriter injects the per-request CSP nonce into embedded HTML pages.
