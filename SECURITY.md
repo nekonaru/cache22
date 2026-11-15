@@ -1,4 +1,4 @@
-# Security Policy
+﻿# Security Policy
 
 ## Reporting a vulnerability
 
@@ -25,9 +25,10 @@ Cache22 is a zero-knowledge, burn-after-reading secret sharing service. Reports 
 
 | Version | Supported |
 | --- | --- |
-| v1.0.x | ✅ |
-| < v1.0.0 | ❌ |
+| v1.0.x | âœ… |
+| < v1.0.0 | âŒ |
 
 ## Safe use
 
 Cache22 cannot prevent the secret's recipient from copying or photographing what they read. Links are capabilities: anyone holding the full link (including the `#fragment`) can read the secret until it is burned. Share links over a single trusted channel.
+
