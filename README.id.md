@@ -1,126 +1,232 @@
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/logo.svg">
-    <source media="(prefers-color-scheme: light)" srcset="assets/logo-on-light.svg">
-    <img alt="Cache22" src="assets/logo.svg" width="640">
-  </picture>
-</p>
+<div align="center">
+  <img src="assets/icon.svg" alt="Logo Cache22" width="120" />
+  <h1>Cache22: One-Time Secret Sharing</h1>
+  <p><b>Bagikan rahasia sekali baca yang hilang setelah dibaca,<br/>terenkripsi sebelum meninggalkan perangkatmu.</b></p>
 
-<p align="center">
-  <a href="https://github.com/nekonaru/cache22/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/nekonaru/cache22/actions/workflows/ci.yml/badge.svg"></a>
-  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-FFB020.svg"></a>
-  <img alt="Go" src="https://img.shields.io/badge/Go-%E2%89%A5%201.23-00ADD8.svg">
-</p>
+  <a href="https://github.com/nekonaru/cache22/releases"><img src="https://img.shields.io/github/v/release/nekonaru/cache22?style=flat-square&color=blue" alt="Release" /></a>
+  <a href="https://github.com/nekonaru/cache22/actions/workflows/ci.yml"><img src="https://github.com/nekonaru/cache22/actions/workflows/ci.yml/badge.svg?branch=main&style=flat-square" alt="CI" /></a>
+  <img src="https://img.shields.io/badge/Go-1.23%2B-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go" />
+  <img src="https://img.shields.io/badge/Platform-Linux%2C%20macOS%2C%20Windows-blue?style=flat-square" alt="Platform" />
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License: MIT" /></a>
+  <img src="https://img.shields.io/badge/Status-Active-brightgreen?style=flat-square" alt="Status" />
+</div>
 
-# Cache22
+<br />
 
-**Kirim sekali. Hilang setelah dibaca.** / **Send once. Gone after reading.**
+[English](README.md) | **Bahasa Indonesia**
 
-Cache22 adalah layanan berbagi rahasia sekali baca. Kamu menempel teks atau file kecil, mendapat satu link unik, dan begitu penerima membukanya, data dihapus permanen dari server. Enkripsi dilakukan di browser (zero-knowledge): kunci hanya ada di fragmen URL dan server hanya menyimpan ciphertext.
-
-[`README.md`](README.md) (English) · `README.id.md` (Indonesia)
+> [!NOTE]
+> Cache22 menghapus rahasia setelah dibaca. Server hanya menyimpan ciphertext, dan kunci tidak pernah keluar dari perangkat pengirim.
 
 ---
 
-## Kenapa
+## Daftar Isi
 
-Mengirim password lewat chat berarti ia hidup selamanya di riwayat, backup, dan notifikasi. Cache22 membuat rahasia itu menghancurkan dirinya sendiri:
+- [Tentang](#tentang)
+- [Fitur](#fitur)
+- [Kebutuhan](#kebutuhan)
+- [Instalasi](#instalasi)
+- [Pemakaian](#pemakaian)
+- [API](#api)
+- [Konfigurasi](#konfigurasi)
+- [Struktur Proyek](#struktur-proyek)
+- [Pengembangan](#pengembangan)
+- [Pengujian](#pengujian)
+- [Keamanan](#keamanan)
+- [Integrasi Kontinu](#integrasi-kontinu)
+- [FAQ](#faq)
+- [Penulis](#penulis)
+- [Lisensi](#lisensi)
 
-- **Zero-knowledge** — enkripsi di sisi klien (AES-256-GCM via Web Crypto). Kuncinya ada di fragmen URL (`#…`), yang tidak pernah dikirim browser ke server.
-- **Terbakar setelah dibaca** — proses baca bersifat atomik: sekali ditampilkan, rahasia lenyap. Dua pembaca bersamaan tidak bisa sama-sama berhasil.
-- **Aman dari pratinjau link** — aplikasi chat yang membuka link otomatis hanya melihat halaman HTML (dekripsi butuh fragmen **dan** tombol “Tampilkan rahasia”).
-- **Kegagalan seragam** — “tidak ada / sudah dibaca / kedaluwarsa” semuanya mengembalikan `404 {"error":"not_found"}` yang byte-nya identik, jadi ID tidak bisa ditebak lewat status.
-- **Satu binary statis** — hanya Go standard library. `web/index.html` di-embed dengan `go:embed`.
+---
+
+## Tentang
+
+**Cache22** membagikan teks atau file kecil sebagai rahasia sekali baca. Kamu menempelnya, mendapat satu link unik, lalu mengirinkannya. Orang yang membuka link melihat isinya sekali; isinya kemudian dihapus permanen dari server. Enkripsi terjadi di perangkat pengirim, jadi layanan ini tidak pernah tahu apa yang kamu bagikan.
+
+> _"One link, one read, then nothing."_
+
+---
 
 ## Fitur
 
-| | |
-| --- | --- |
-| Buat drop teks (≤ 64 KB) dan file (≤ 2 MB) | ✅ |
-| TTL: 10 menit / 1 jam / 24 jam / 7 hari | ✅ |
-| Maksimal dibuka: 1 (bawaan) hingga 10 | ✅ |
-| Enkripsi client-side AES-256-GCM, kunci di fragmen URL | ✅ |
-| Kunci link dengan passphrase (PBKDF2-HMAC-SHA256, 600.000 iterasi) | ✅ |
-| File kecil terenkripsi (nama file ikut dienkripsi) | ✅ |
-| Rate limiting token bucket per IP | ✅ |
-| CLI: `deadrop` — rahasia langsung dari terminal | ✅ |
-| Penyimpanan in-memory, baca atomik + sweeper kedaluwarsa | ✅ |
-| UI bilingual (ID/EN, deteksi bahasa browser), mode gelap & terang | ✅ |
+### Mengirim
 
-## Mulai cepat
+| Fitur | Deskripsi |
+|-------|-----------|
+| **Link sekali baca** | Tempel teks atau file kecil, dapatkan link unik yang hilang setelah dibaca |
+| **Rahasia teks hingga 64 KB** | Tempel langsung di UI |
+| **Rahasia file hingga 2 MB** | Nama file ikut terenkripsi bersama file-nya |
+| **Kedaluwarsa yang bisa diatur** | 10 menit, 1 jam, 24 jam atau 7 hari |
+| **Batas dibuka** | Sekali baca secara default; opsional hingga 1 sampai 10 kali |
 
-### Jalankan dari source (Go ≥ 1.23)
+### Keamanan
+
+| Fitur | Deskripsi |
+|-------|-----------|
+| **Kripto zero-knowledge** | AES-256-GCM di browser; kunci tetap di fragmen URL |
+| **Kunci passphrase opsional** | PBKDF2-HMAC-SHA256, 600.000 iterasi; link saja tidak berguna tanpa passphrase |
+| **Kegagalan seragam** | Id tidak ada, sudah dibaca, kedaluwarsa, atau tidak valid semuanya mengembalikan `404` yang sama |
+| **Burn atomik** | Baca dan hapus dalam satu lock; pembaca bersamaan tidak bisa berdua menang |
+
+### Privasi
+
+| Fitur | Deskripsi |
+|-------|-----------|
+| **Tanpa plaintext di server** | Server hanya menyimpan ciphertext dan meta kecil yang opak |
+| **Kunci tidak pernah dikirim** | Fragmen dihapus dari address bar saat halaman dimuat |
+| **Render aman** | Rahasia dirender lewat `textContent`; CSP memakai nonce per request dan melarang script inline |
+| **Logging minimal** | Log hanya berisi method, route template, status, dan durasi |
+
+### CLI
+
+| Fitur | Deskripsi |
+|-------|-----------|
+| **CLI `deadrop`** | Pipa rahasia dari terminal dan dapatkan link kembali |
+| **Baca lalu burn** | `deadrop get <url>` mendekripsi, mencetak atau menyimpan file, lalu membakar drop |
+| **Format kompatibel web** | Link buatan CLI terbuka di UI web, dan sebaliknya |
+
+### Hosting
+
+| Fitur | Deskripsi |
+|-------|-----------|
+| **Satu binary statis** | Hanya Go standard library; UI tertanam di binary |
+| **Docker image** | Distroless, non-root, siap di belakang reverse proxy |
+| **Store in-memory** | Anggaran byte global; drop kedaluwarsa disapu tiap menit |
+| **Rate limiting per IP** | Token bucket bawaan, disetel lewat flag atau env |
+
+### Antarmuka
+
+| Fitur | Deskripsi |
+|-------|-----------|
+| **UI bilingual** | English dan Indonesia, dideteksi dari browser |
+| **Gelap dan terang** | Mengikuti skema warna sistem |
+| **Responsif** | Berjalan di ponsel dan desktop |
+
+---
+
+## Kebutuhan
+
+| Dependency | Versi Minimum | Catatan |
+|------------|---------------|---------|
+| **Go** | 1.23 | Hanya untuk build dari source |
+| **Git** | Apa pun | Hanya untuk build dari source |
+| **Docker** | 24 | Hanya untuk menjalankan container image |
+| **Browser modern** | Dukungan Web Crypto | Chrome, Firefox, Safari, Edge (versi terbaru) |
+
+> [!TIP]
+> Kalau kamu hanya ingin memakai Cache22, Go dan Docker tidak perlu. Unduh arsip dari halaman [Releases](https://github.com/nekonaru/cache22/releases) atau `go install` (lihat Instalasi).
+
+### Belum pernah pakai terminal? Mulai dari sini
+
+<details>
+<summary><b>Cara membuka terminal</b></summary>
+
+1. Windows: tekan tombol **Windows**, ketik `PowerShell`, lalu tekan **Enter**. Jendela biru terbuka; ketik perintah di sana.
+2. macOS: tekan **Command + Space**, ketik `Terminal`, lalu tekan **Return**.
+3. Linux: tekan **Ctrl + Alt + T**, atau cari `Terminal` di menu aplikasi.
+
+</details>
+
+---
+
+## Instalasi
+
+### Opsi A: `go install` (termudah)
+
+Membutuhkan Go 1.23 atau lebih baru.
+
+```bash
+go install github.com/nekonaru/cache22/cmd/cache22@latest
+go install github.com/nekonaru/cache22/cmd/deadrop@latest
+cache22
+```
+
+Buka <http://localhost:8080>. Arsip prebuilt untuk Linux, macOS, dan Windows juga tersedia di setiap [release](https://github.com/nekonaru/cache22/releases); setiap arsip berisi `cache22`, `deadrop`, README, dan lisensi.
+
+### Opsi B: Build dari source (untuk development)
+
+#### 1. Ambil kode proyek
+
+<details>
+<summary><b>Saya sudah punya Git</b></summary>
 
 ```bash
 git clone https://github.com/nekonaru/cache22.git
 cd cache22
-go run ./cmd/cache22            # mendengarkan di :8080
 ```
 
-Buka <http://localhost:8080> — tempel rahasia, dapat link, buka sekali.
+</details>
 
-### Bangun binary
+<details>
+<summary><b>Saya belum punya Git</b></summary>
+
+1. Buka halaman repo di GitHub.
+2. Klik tombol hijau **Code**, pilih **Download ZIP**.
+3. Ekstrak ZIP dan buka terminal di folder hasil ekstrak.
+
+</details>
+
+#### 2. Pasang dependencies dan verifikasi
 
 ```bash
-make build     # menghasilkan bin/cache22 dan bin/deadrop
-./bin/cache22 --version
+go vet ./...
+go test -race ./...
 ```
 
-### Docker
+> [!IMPORTANT]
+> `go vet` tidak boleh melaporkan masalah dan `go test -race ./...` harus lolos sebelum kamu mengandalkan sebuah build.
+
+#### 3. Build dan jalankan
 
 ```bash
-docker build -t cache22 .
-docker run --rm -p 8080:8080 -e CACHE22_BASE_URL=https://rahasia.contoh.com cache22
+make build     # bin/cache22 dan bin/deadrop
+./bin/cache22  # mendengarkan di :8080
 ```
 
-Image memakai `gcr.io/distroless/static-debian12:nonroot`; binary berjalan sebagai non-root.
+---
 
-## Memakai CLI
+## Pemakaian
 
-```bash
-echo "password-db: hunter2" | deadrop                 # mencetak link
-echo "token" | deadrop -ttl 10m -max-reads 2
-deadrop -file ./credentials.json                      # sampai 2 MB
-deadrop get https://host/d/ID#KEY                     # baca + bakar
-```
+### Saat pertama dibuka
 
-`deadrop get` menampilkan drop teks ke stdout; drop file disimpan ke disk (`-o path` atau nama file asli yang terenkripsi) dengan izin `0600`. Arahkan ke instance kamu dengan `CACHE22_SERVER`, dan `CACHE22_PASSPHRASE` untuk menghindari prompt.
+1. Jalankan `cache22` (atau `make run` untuk development).
+2. Buka <http://localhost:8080>.
+3. Tempel rahasia kamu, pilih kedaluwarsa, klik **Create link**.
+4. Kirim link-nya, plus passphrase secara terpisah kalau kamu mengaktifkannya.
+5. Setelah penerima membuka link, rahasia terhapus.
 
-CLI mengenkripsi dengan format envelope yang persis sama dengan UI web — link dari `deadrop` bisa dibuka di browser mana pun, dan sebaliknya. Kuncinya tidak pernah muncul di log server (lihat [Pengembangan](#pengembangan)).
+> [!NOTE]
+> Link berisi kunci dekripsi di fragmennya (`#...`). Siapa pun yang memegang link lengkap bisa membaca rahasianya sampai dihapus.
 
-## Cara kerja
+### Pemakaian sehari-hari
 
-```
- browser/CLI pengirim                 server                     penerima
- ┌──────────────────┐   ciphertext   ┌──────────────┐    page   ┌────────────────┐
- │ AES-256-GCM      │ ───────────▶   │ simpan blob  │ ───────▶  │ klik “Tampilkan”│
- │ kunci → fragmen  │                │ (tanpa kunci!)│           │ kunci dari #…  │
- └──────────────────┘                └──────────────┘           └───────┬────────┘
-       link: https://host/d/ID#KEY         ▲                            │
-                                           └──── POST /api/drops/ID/read ┘
-                                                 (atomik: baca-dan-hapus)
-```
+- **Tempel rahasia**: cukup ketik `token: abc123` di kotaknya.
+- **Lampirkan file**: klik drop zone untuk memilih file hingga 2 MB; nama file ikut terenkripsi.
+- **Kunci dengan passphrase**: aktifkan toggle, lalu bagikan passphrase lewat kanal lain. Link saja tidak berguna tanpa itu.
+- **Batasi dibuka**: ubah "Max opens" dari 1 menjadi 10.
+- **Dari terminal**: `echo "db-password: hunter2" | deadrop` mencetak link.
+- **Baca lagi**: `deadrop get <url>` mencetak rahasia teks atau menyimpan file dengan izin `0600`.
 
-- `GET /d/{id}` selalu mengembalikan halaman yang sama dan tidak pernah menyentuh penyimpanan — pratinjau link di chat tidak akan membakar rahasia kamu.
-- Hanya `POST /api/drops/{id}/read` yang mengonsumsi drop, dan itu atomik (read-modify-write di bawah satu mutex), jadi tepat satu dari N pembaca yang menang.
-- Fragmen dihapus dari address bar dengan `history.replaceState` begitu halaman dimuat.
-- Jika passphrase diaktifkan, link **tidak membawa kunci sama sekali**; kunci data acak dibungkus (PBKDF2-HMAC-SHA256 → AES-256-GCM) dan disimpan di `meta` sisi server. Bagikan passphrase lewat kanal terpisah.
+---
 
-### API
+## API
 
-| Metode & path | Keterangan |
-| --- | --- |
-| `POST /api/drops` | Buat drop. Body: `{payload, ttl, max_reads?, kind, meta?}`. → `201 {id, url, expires_at}`. Error: `400`, `413`, `429`, `503`. |
-| `GET /d/{id}` | Halaman penerima. Selalu `200`, identik untuk semua id. |
-| `POST /api/drops/{id}/read` | Konsumsi drop. → `200 {payload, kind, meta}` atau `404 {"error":"not_found"}` seragam. |
-| `GET /healthz` | `200 ok` |
+| Metode dan path | Fungsi |
+|-----------------|--------|
+| `POST /api/drops` | Membuat drop. Body: `{payload, ttl, max_reads?, kind, meta?}`. Mengembalikan `201 {id, url, expires_at}` |
+| `GET /d/{id}` | Halaman penerima. Selalu `200`, identik untuk semua id |
+| `POST /api/drops/{id}/read` | Mengonsumsi drop. Mengembalikan `200 {payload, kind, meta}` atau `404 {"error":"not_found"}` yang seragam |
+| `GET /healthz` | Health check. Mengembalikan `200 ok` |
 
-`payload` adalah base64url dari `iv[12] ‖ ciphertext AES-256-GCM` atas envelope JSON `{"v":1,"kind":"text|file","name"?,"data":base64url}`. `ttl` harus salah satu dari `10m, 1h, 24h, 7d`. `max_reads` default `1`, maksimum `10`. ID adalah 128-bit dari `crypto/rand`, base64url (22 karakter).
+`payload` adalah base64url dari `iv[12]` ditambah ciphertext AES-256-GCM atas envelope JSON `{"v":1,"kind":"text|file","name"?,"data":base64url}`. `ttl` harus salah satu dari `10m`, `1h`, `24h`, `7d`. `max_reads` default `1`, maksimum `10`. Id acak 128-bit, base64url (22 karakter). Error: `400`, `413`, `429`, `503`.
 
-### Konfigurasi
+---
+
+## Konfigurasi
 
 | Flag | Env | Default |
-| --- | --- | --- |
+|------|-----|---------|
 | `-addr` | `CACHE22_ADDR` | `:8080` |
 | `-base-url` | `CACHE22_BASE_URL` | `http://localhost:8080` |
 | `-max-text-bytes` | `CACHE22_MAX_TEXT_BYTES` | `65536` |
@@ -130,72 +236,143 @@ CLI mengenkripsi dengan format envelope yang persis sama dengan UI web — link 
 | `-burst` | `CACHE22_BURST` | `10` |
 | `-trust-proxy` | `CACHE22_TRUST_PROXY` | `false` |
 
-`-trust-proxy` (hanya di belakang reverse proxy tepercaya) menentukan apakah `X-Forwarded-For` dipercaya untuk rate limiting. Semua respons membawa `Cache-Control: no-store`, `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, `X-Robots-Tag: noindex`, dan `Content-Security-Policy` ketat dengan nonce per-request.
-
-## Batasan yang jujur
-
-- Cache22 tidak bisa mencegah **penerima** menyalin atau memotret isi rahasia setelah ditampilkan.
-- Jika link lengkap (termasuk `#…`) bocor **sebelum** dibuka, siapa pun yang melihatnya bisa membaca rahasia — link adalah kapabilitas. Dengan passphrase, link saja tidak berguna; tanpa passphrase, perlakukan link seperti password.
-- MVP menyimpan drop di memori dengan anggaran byte global: **restart = semua drop hilang**. Penyimpanan persisten (bbolt) ada di roadmap.
-- Konten terenkripsi-at-rest, tetapi metadata trafik (ukuran, timing) tidak disembunyikan.
-
-## Model ancaman (ringkas)
-
-| Ancaman | Mitigasi |
-| --- | --- |
-| Penebakan ID | ID 128-bit; body/status/header 404 seragam; rate limiting |
-| Bot pratinjau membakar drop | Konsumsi hanya via `POST …/read`; `GET` tidak pernah memutasi |
-| Server jahat/penasaran, atau kebocoran database | Enkripsi client-side zero-knowledge; server hanya melihat ciphertext + meta opak |
-| Race baca ganda | Baca-dan-hapus atomik dalam satu mutex |
-| Kebocoran lewat log/referrer | Log minimal (method, route template, status, durasi); `no-referrer`; `no-store` |
-| Payload berlebihan / penyalahgunaan | Batas ukuran per kind + anggaran memori global; `503` saat penuh; rate limit; TTL maks 7 hari |
-| XSS di halaman penerima | CSP ketat dengan nonce per request; isi ditampilkan via `textContent` |
-| Brute-force passphrase | PBKDF2-HMAC-SHA256, 600.000 iterasi (Argon2 tidak tersedia di Web Crypto — PBKDF2 adalah fallback standar) |
-
-## Pengembangan
-
-```bash
-make test    # go vet + go test -race ./...
-make run     # server dev di :8080
-```
-
-Struktur:
-
-```
-cmd/cache22/       entrypoint server
-cmd/deadrop/       CLI
-internal/config    flag + env, tervalidasi
-internal/store     interface Store + implementasi memori (Consume atomik, Sweep)
-internal/server    handler HTTP, header keamanan, logging, rate limiting
-internal/ratelimit token bucket
-internal/crypt     kripto sisi CLI (cermin implementasi browser)
-web/index.html     UI satu halaman (di-embed via go:embed)
-assets/            logo, favicon (ink/signal/paper/slate)
-```
-
-Checklist verifikasi manual:
-
-1. `go test -race ./...` — termasuk tes 100 goroutine yang memastikan tepat satu pembaca menang.
-2. Buat drop dengan DevTools terbuka (tab Network). Muat link, tekan **Tampilkan rahasia**, dan pastikan tidak ada URL request yang memuat `#` serta tidak ada id di log server.
-3. Dengan log `info`, pastikan hanya terlihat `route="POST /api/drops/{id}/read"` — bukan id konkret atau payload.
-4. Enkripsi file di UI lalu dekripsi dengan CLI (`deadrop get`), dan sebaliknya.
-5. Cek `curl -s -D - -o /dev/null http://localhost:8080/` untuk header keamanan di atas.
-
-## Roadmap
-
-- Penyimpanan persisten via bbolt/BadgerDB (drop bertahan saat restart; `Consume` dalam satu transaksi tulis)
-- Batas baca N kali per drop (API sudah menerima `max_reads` 1–10)
-- Notifikasi “sudah dibaca” berbasis webhook / Telegram (dengan proteksi SSRF: alamat privat/loopback ditolak)
-- Pembatasan tarif / CAPTCHA ringan untuk demo publik
-
-## Kontribusi & keamanan
-
-Kontribusi: [CONTRIBUTING.md](CONTRIBUTING.md) · Laporan kerentanan: [SECURITY.md](SECURITY.md) · Perubahan: [CHANGELOG.md](CHANGELOG.md)
-
-## Lisensi
-
-[MIT](LICENSE) © 2026 Niko (nekonaru)
+`-trust-proxy` membuat server mempercayai `X-Forwarded-For` untuk rate limiting; aktifkan hanya di belakang reverse proxy yang tepercaya. Semua respons membawa `Cache-Control: no-store`, `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, `X-Robots-Tag: noindex`, dan `Content-Security-Policy` ketat dengan nonce per request.
 
 ---
 
-**Cache22** — karena rahasia kamu selayaknya se-efemer link yang membawa mereka.
+## Struktur Proyek
+
+```
+cache22/
+├── cmd/
+│   ├── cache22/              # entrypoint server
+│   └── deadrop/              # CLI
+├── internal/
+│   ├── config/               # flag dan env, tervalidasi
+│   ├── crypt/                # kripto sisi CLI, cermin browser
+│   ├── ratelimit/            # token bucket per IP
+│   ├── server/               # handler, header, logging
+│   └── store/                # interface Store dan implementasi memori
+├── web/
+│   ├── index.html            # UI satu halaman
+│   └── web.go                # go:embed
+├── assets/                   # logo, mark, icon, favicon
+├── README.md                 # dokumentasi English (sumber kebenaran)
+├── README.id.md              # dokumentasi Indonesia
+├── CHANGELOG.md              # changelog English
+├── CHANGELOG.id.md           # changelog Indonesia
+├── Dockerfile                # distroless, non-root
+└── Makefile                  # build, test, run, docker
+```
+
+---
+
+## Pengembangan
+
+### Mengubah teks UI
+
+1. Edit objek `en` dan `id` di bagian bawah `web/index.html` bersamaan.
+2. Jalankan `go build ./...` dan muat ulang halaman.
+
+### Menambah flag atau env var
+
+1. Tambahkan di `internal/config/config.go` beserta default-nya.
+2. Pakai dari `internal/server` atau `cmd/cache22`.
+3. Dokumentasikan di tabel Konfigurasi di kedua README.
+
+### Rilis
+
+1. Naikkan versi di `CHANGELOG.md` dan `CHANGELOG.id.md`.
+2. Tag `vX.Y.Z` di `main` setelah CI hijau.
+3. CI membangun arsip; workflow rilis melampirkannya dengan `SHA256SUMS.txt`.
+
+> [!WARNING]
+> CI menegakkan `gofmt`. Jangan merapikan alignment manual; jalankan `gofmt -w .` sebelum commit.
+
+---
+
+## Pengujian
+
+Verifikasi sebelum setiap push; keduanya harus bersih:
+
+```bash
+go vet ./...
+go test -race ./...
+```
+
+| Check | Requirement |
+|-------|-------------|
+| `go vet ./...` | Nol masalah |
+| `go test -race ./...` | Semua tes lolos, termasuk tes race 100 goroutine dan test vector format wire JS/Go |
+
+---
+
+## Keamanan
+
+Cache22 dibangun di atas properti-properti terverifikasi ini: enkripsi AES-256-GCM di perangkat pengirim, tidak ada plaintext atau kunci di server maupun di log, respons `404` seragam untuk semua kegagalan baca, burn atomik dalam satu mutex, Content Security Policy ketat ber-nonce, dan token bucket per IP. `gofmt`, `go vet` dan `go test -race` berjalan di setiap push.
+
+> [!NOTE]
+> Laporkan kerentanan secara privat sesuai [`SECURITY.md`](SECURITY.md). Jangan buka issue publik untuk itu.
+
+---
+
+## Integrasi Kontinu
+
+| Workflow | Fungsi |
+|----------|--------|
+| `ci.yml` | `gofmt`, `go vet`, `go test -race`, build server dan CLI, build Docker image |
+
+CI berjalan pada push ke `main`, pada pull request, dan pada tag `v*`.
+
+---
+
+## FAQ
+
+<details>
+<summary><b>Bisakah server membaca rahasia saya?</b></summary>
+
+Tidak. Rahasia dienkripsi di browser kamu dengan AES-256-GCM sebelum dikirim. Kunci dekripsi tetap di fragmen URL (`#...`) dan tidak pernah ditransmisikan. Server menyimpan ciphertext dan meta kecil yang opak.
+</details>
+
+<details>
+<summary><b>Apakah penerima bisa menyimpan salinannya?</b></summary>
+
+Cache22 menghapus rahasia setelah dibaca, tapi tidak bisa mengendalikan apa yang disalin, ditempel, atau difoto penerima.
+</details>
+
+<details>
+<summary><b>Apakah rahasia selamat dari restart server?</b></summary>
+
+Tidak. MVP menyimpan drop di memori dengan batas ukuran global; restart menghapus semuanya. Penyimpanan persisten ada di roadmap.
+</details>
+
+<details>
+<summary><b>Kenapa link salah dan drop yang sudah dibaca terlihat sama?</b></summary>
+
+Keduanya mengembalikan respons `404 {"error":"not_found"}` yang byte-nya identik, jadi tidak ada yang bisa tahu apakah suatu id ada, sudah dibaca, atau kedaluwarsa.
+</details>
+
+<details>
+<summary><b>Kenapa bukan Argon2 untuk passphrase?</b></summary>
+
+Web Crypto API tidak menyediakan Argon2, jadi Cache22 memakai PBKDF2-HMAC-SHA256 dengan 600.000 iterasi dan salt acak per rahasia.
+</details>
+
+---
+
+## Penulis
+
+<div align="center">
+
+| [![Nicolas Dwi Dharma](https://github.com/nekonaru.png?size=100)](https://github.com/nekonaru) |
+|:---:|
+| **Nicolas Dwi Dharma** |
+| [github.com/nekonaru](https://github.com/nekonaru) |
+
+</div>
+
+---
+
+## Lisensi
+
+Didistribusikan di bawah **MIT License**. Lihat [`LICENSE`](LICENSE) untuk informasi lebih lanjut.

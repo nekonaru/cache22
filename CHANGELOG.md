@@ -1,43 +1,55 @@
 # Changelog
 
-All notable changes to Cache22 are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project uses [Semantic Versioning](https://semver.org/).
+All notable changes to Cache22 are documented here. The English file is the source of truth; `CHANGELOG.id.md` is the Indonesian translation.
 
-## [1.0.1] — 2026-11-15
+## v1.0.2 - 2026-11-15
 
-### Fixed
+Fix and documentation release: the Content Security Policy no longer blocks app rendering, and the repository documentation follows the project documentation standard.
 
-- `deadrop`: dangling create flags (e.g. `-ttl` with no value) now return a clean error instead of panicking with an index out of range.
-- Server: `nonceWriter` now implements `http.Flusher` so streaming/upgrade paths cannot be broken by the middleware chain.
-- Web: `<noscript>` fallback explaining that JavaScript is required (all crypto happens in the browser).
+### Bug fixes
 
-## [1.0.0] — 2026-11-15
+- **Web UI.** Inline style attributes violated the nonce based CSP and were rejected by the browser, so parts of the page rendered unstyled and the console filled with errors. All dynamic styles now come from the stylesheet. Verified in DevTools: zero console errors on load, create, reveal and burn flows.
+- **Page footnote.** The inline `style` attribute on the no-JS fallback is now a stylesheet class.
+- **Makefile.** `make test` runs `go vet` first so local runs match CI.
 
-First public release.
+### Improvements
 
-### Added
+- **README.** Both files restructured to the standard section order with synchronized language content and a table of contents.
+- **Changelog.** Split into English and Indonesian files with matching content.
+- **Repository metadata.** Description is one sentence without tooling names; topics reviewed against the project scope.
 
-- One-time secret drops: create (`POST /api/drops`), read-and-burn (`POST /api/drops/{id}/read`), with TTL `10m`/`1h`/`24h`/`7d`.
-- Uniform failure surface: unknown, already-read, expired and malformed ids all return byte-identical `404 {"error":"not_found"}`.
-- Atomic read-and-delete under a single mutex; optional `max_reads` 1–10.
-- Zero-knowledge client-side encryption: AES-256-GCM, 256-bit key from `crypto.getRandomValues`, 12-byte IV, key carried in the URL fragment only.
-- Optional passphrase lock: PBKDF2-HMAC-SHA256 (600 000 iterations) wrapping the data key; wrapping parameters stored as opaque server-side meta.
-- Encrypted file drops up to 2 MB (filename included in the encrypted envelope); text drops up to 64 KB.
-- Embedded single-page UI (`web/index.html`) — bilingual ID/EN, dark and light, fully self-contained, strict CSP with per-request nonce.
-- `deadrop` CLI: pipe secrets from the terminal, `deadrop get` to read-and-burn, byte-compatible wire format with the web UI (verified by a cross-implementation test vector).
-- Per-IP token-bucket rate limiting (self-contained), strict security headers on every response, minimal structured logs (method, route template, status, duration — never ids, payloads, or fragments).
-- `GET /healthz`, graceful shutdown, expiry sweeper (1-minute interval), in-memory storage with a global memory budget (`503` when full).
-- MIT license, bilingual README, distroless non-root Dockerfile, Makefile.
+## v1.0.1 - 2026-11-15
 
-### Security
+Robustness patch on top of v1.0.0.
 
-- IDs are 128-bit `crypto/rand` (base64url, 22 chars).
-- `GET /d/{id}` never consumes a drop and never touches storage; link-preview bots cannot burn secrets.
-- Recipient page renders secrets via `textContent` only.
+### Bug fixes
+
+- **CLI.** Dangling create flags (for example `-ttl` with no value) exit with a clean error instead of panicking with index out of range.
+- **Server.** The CSP nonce response writer now implements `http.Flusher`, so streaming paths cannot be broken by the middleware chain.
+- **Web.** The page declares a `<noscript>` fallback explaining that JavaScript is required for all crypto.
+
+## v1.0.0 - 2026-11-15
+
+First public release of Cache22: one-time secrets that burn after reading, with zero-knowledge client-side encryption.
+
+### New features
+
+- **One-time drops.** Create (`POST /api/drops`), read once and burn (`POST /api/drops/{id}/read`), with TTL `10m`, `1h`, `24h` and `7d`.
+- **Uniform failures.** Unknown, already read, expired and malformed ids all return the same `404 {"error":"not_found"}`.
+- **Atomic burn.** Read and delete happen under one mutex; a 100-goroutine test proves exactly one reader wins.
+- **Zero-knowledge encryption.** AES-256-GCM in the browser, key only in the URL fragment, never sent to the server.
+- **Passphrase lock.** Optional PBKDF2-HMAC-SHA256 wrapping of the data key (600,000 iterations); the link alone is useless without the passphrase.
+- **Encrypted file drops.** Files up to 2 MB, filename included in the encrypted envelope.
+- **Embedded web UI.** Bilingual (English, Indonesian), dark and light, strict CSP with per-request nonce, secrets rendered via `textContent`.
+- **`deadrop` CLI.** Pipe secrets from the terminal, `deadrop get` burns after reading, wire format byte-compatible with the web UI.
+- **Rate limiting and expiry sweeper.** Per-IP token bucket, one minute sweep interval, `/healthz`, graceful shutdown.
+- **Distroless non-root Docker image, MIT license, bilingual README, CI.**
 
 ### Known limitations
 
-- In-memory storage: restart loses all drops.
-- Cannot prevent the recipient from copying the secret after reading.
+- **In-memory storage.** A restart deletes all drops; persistent storage is tracked on the roadmap.
+- **Copy protection.** The service cannot stop the recipient from copying or photographing the secret after reading.
 
-[1.0.1]: https://github.com/nekonaru/cache22/releases/tag/v1.0.1
-[1.0.0]: https://github.com/nekonaru/cache22/releases/tag/v1.0.0
+[v1.0.2]: https://github.com/nekonaru/cache22/compare/v1.0.1...v1.0.2
+[v1.0.1]: https://github.com/nekonaru/cache22/compare/v1.0.0...v1.0.1
+[v1.0.0]: https://github.com/nekonaru/cache22/releases/tag/v1.0.0

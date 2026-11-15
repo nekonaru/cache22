@@ -11,7 +11,7 @@ build: ## build server + CLI into bin/
 	go build -trimpath -ldflags="$(LDFLAGS)" -o bin/$(BINARY) ./cmd/cache22
 	go build -trimpath -ldflags="$(LDFLAGS)" -o bin/$(CLI) ./cmd/deadrop
 
-test: ## run the full test suite with the race detector
+test: vet ## run the full test suite with the race detector
 	go test -race ./...
 
 vet: ## static analysis

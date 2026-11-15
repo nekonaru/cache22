@@ -67,7 +67,7 @@ func run() error {
 }
 
 func usage() {
-	fmt.Fprintf(os.Stderr, `deadrop — Cache22 CLI (one-time secrets)
+	fmt.Fprintf(os.Stderr, `deadrop - Cache22 CLI (one-time secrets)
 
 Usage:
   echo "secret" | deadrop [flags]     create a drop, print the link
@@ -233,7 +233,7 @@ func runCreate(args []string) error {
 	switch resp.StatusCode {
 	case http.StatusCreated:
 	case http.StatusTooManyRequests:
-		return errors.New("rate limited — slow down and retry")
+		return errors.New("rate limited - slow down and retry")
 	default:
 		b, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		return fmt.Errorf("server returned %d: %s", resp.StatusCode, strings.TrimSpace(string(b)))
@@ -292,7 +292,7 @@ func runGet(args []string) error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusNotFound {
-		return errors.New("not found — the secret was already read, expired, or never existed")
+		return errors.New("not found - the secret was already read, expired, or never existed")
 	}
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("server returned %d", resp.StatusCode)
@@ -312,7 +312,7 @@ func runGet(args []string) error {
 	}
 	env, err := crypt.DecryptPayload(body.Payload, key)
 	if err != nil {
-		return errors.New("decryption failed — wrong link, corrupted data, or wrong passphrase")
+		return errors.New("decryption failed - wrong link, corrupted data, or wrong passphrase")
 	}
 
 	if body.Kind == "file" || env.Kind == "file" {
