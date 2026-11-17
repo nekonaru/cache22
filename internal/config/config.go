@@ -22,6 +22,7 @@ type Config struct {
 	Burst         float64 // per-IP burst size
 	TrustProxy    bool    // trust X-Forwarded-For for client IP (enable only behind a trusted proxy)
 	Data          string  // bbolt file path; empty means pure in-memory storage
+	WebhookURL    string  // read receipt endpoint; empty means disabled (env CACHE22_WEBHOOK_URL)
 }
 
 func envStr(key, def string) string {
@@ -80,6 +81,7 @@ func Parse(fs *flag.FlagSet, args []string) (Config, error) {
 	fs.Float64Var(&c.Burst, "burst", envFloat("CACHE22_BURST", 10), "per-IP burst allowance (env CACHE22_BURST)")
 	fs.BoolVar(&c.TrustProxy, "trust-proxy", envBool("CACHE22_TRUST_PROXY", false), "trust X-Forwarded-For for client IP; enable only behind a trusted proxy (env CACHE22_TRUST_PROXY)")
 	fs.StringVar(&c.Data, "data", envStr("CACHE22_DATA", "cache22.db"), "bbolt data file path (e.g. /var/lib/cache22/cache22.db); set to \"-\" for in-memory storage (env CACHE22_DATA)")
+	fs.StringVar(&c.WebhookURL, "webhook", envStr("CACHE22_WEBHOOK_URL", ""), "read receipt webhook URL (e.g. https://hooks.example.com/cache22); empty disables notifications (env CACHE22_WEBHOOK_URL)")
 	if err := fs.Parse(args); err != nil {
 		return Config{}, err
 	}

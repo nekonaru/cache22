@@ -15,6 +15,7 @@ import (
 	"github.com/nekonaru/cache22/internal/config"
 	"github.com/nekonaru/cache22/internal/server"
 	"github.com/nekonaru/cache22/internal/store"
+	"github.com/nekonaru/cache22/internal/webhook"
 )
 
 var version = "dev" // stamped via -ldflags "-X main.version=…"
@@ -51,7 +52,21 @@ func run() error {
 		st = store.NewMemory(cfg.MaxTotalBytes)
 		logger.Info("storage: in-memory (data is lost on restart; set -data/CACHE22_DATA for persistence)")
 	}
+
+	var hook *webhook.Client
+	if cfg.WebhookURL != "" {
+		c, err := webhook.New(cfg.WebhookURL)
+		if err != nil {
+			return fmt.Errorf("webhook: %w", err)
+		}
+		hook = c
+		logger.Info("webhook notifications enabled")
+	}
+
 	srv := server.New(cfg, st, logger, time.Now)
+	if hook != nil {
+		srv.Webhook = hook
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
