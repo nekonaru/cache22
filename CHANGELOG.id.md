@@ -2,6 +2,16 @@
 
 Semua perubahan penting di Cache22 didokumentasikan di sini. `CHANGELOG.md` (English) adalah sumber kebenaran; berkas ini terjemahan Indonesia.
 
+## v1.3.1 - 2026-11-18
+
+Patch ke Blueprint Render: Render mengirim PORT=10000 secara default, jadi servis gratis bakal gagal mengikat port di belakang load balancer Render.
+
+### Perbaikan bug
+
+- **Render Blueprint.** `CACHE22_ADDR` sekarang `:10000` mengikuti default port web service Render; servis listen di situ saat deploy lewat Blueprint, bukan `:8080`.
+
+## v1.3.0 - 2026-11-18
+
 ## v1.3.0 - 2026-11-18
 
 Rilis deployment: repo sekarang menyertakan Blueprint Render.com sehingga Cache22 bisa dideploy satu klik.
@@ -101,6 +111,7 @@ Rilis publik pertama Cache22: rahasia sekali baca yang terhapus setelah dibaca, 
 - **Penyimpanan in-memory.** Restart menghapus semua drop; penyimpanan persisten ada di roadmap.
 - **Perlindungan salinan.** Layanan tidak bisa mencegah penerima menyalin atau memotret rahasia setelah dibuka.
 
+[v1.3.1]: https://github.com/nekonaru/cache22/compare/v1.3.0...v1.3.1
 [v1.3.0]: https://github.com/nekonaru/cache22/compare/v1.2.0...v1.3.0
 [v1.2.0]: https://github.com/nekonaru/cache22/compare/v1.1.0...v1.2.0
 [v1.1.0]: https://github.com/nekonaru/cache22/compare/v1.0.3...v1.1.0

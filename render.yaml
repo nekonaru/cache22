@@ -6,8 +6,9 @@ services:
     plan: free
     dockerfilePath: ./Dockerfile
     envVars:
+      # Render's default PORT is 10000; bind the service there explicitly.
       - key: CACHE22_ADDR
-        value: ":8080"
+        value: ":10000"
       - key: CACHE22_BASE_URL
         sync: false
       # Free tier filesystem is ephemeral; "-" keeps storage in memory so the
