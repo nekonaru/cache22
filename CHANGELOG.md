@@ -2,6 +2,16 @@
 
 All notable changes to Cache22 are documented here. The English file is the source of truth; `CHANGELOG.id.md` is the Indonesian translation.
 
+## v1.3.1 - 2026-11-18
+
+Patch to the Render Blueprint: Render injects PORT=10000 by default, so the free service would have failed to come up behind Render's load balancer.
+
+### Bug fixes
+
+- **Render Blueprint.** `CACHE22_ADDR` is now `:10000` to match the port Render exposes for web services by default; the service listens there instead of `:8080` when deployed via the Blueprint.
+
+## v1.3.0 - 2026-11-18
+
 ## v1.3.0 - 2026-11-18
 
 Deployment release: the repo now ships a Render.com Blueprint so anyone can deploy Cache22 with one click.
@@ -101,6 +111,7 @@ First public release of Cache22: one-time secrets that burn after reading, with 
 - **In-memory storage.** A restart deletes all drops; persistent storage is tracked on the roadmap.
 - **Copy protection.** The service cannot stop the recipient from copying or photographing the secret after reading.
 
+[v1.3.1]: https://github.com/nekonaru/cache22/compare/v1.3.0...v1.3.1
 [v1.3.0]: https://github.com/nekonaru/cache22/compare/v1.2.0...v1.3.0
 [v1.2.0]: https://github.com/nekonaru/cache22/compare/v1.1.0...v1.2.0
 [v1.1.0]: https://github.com/nekonaru/cache22/compare/v1.0.3...v1.1.0
