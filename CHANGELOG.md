@@ -2,6 +2,15 @@
 
 All notable changes to Cache22 are documented here. The English file is the source of truth; `CHANGELOG.id.md` is the Indonesian translation.
 
+## v1.3.0 - 2026-11-18
+
+Deployment release: the repo now ships a Render.com Blueprint so anyone can deploy Cache22 with one click.
+
+### Improvements
+
+- **Render Blueprint.** `render.yaml` builds the existing Dockerfile into a free web service with `/healthz` wired as the health check. README and README.id.md document per-request ephemera note (free filesystem) and how to set `CACHE22_BASE_URL` after first deploy.
+- **Docs.** Installation section now documents Option A, B and C with identical content in both languages.
+
 ## v1.2.0 - 2026-11-17
 
 Feature release: optional read receipts for operators who want to know when a drop is read.
@@ -92,6 +101,7 @@ First public release of Cache22: one-time secrets that burn after reading, with 
 - **In-memory storage.** A restart deletes all drops; persistent storage is tracked on the roadmap.
 - **Copy protection.** The service cannot stop the recipient from copying or photographing the secret after reading.
 
+[v1.3.0]: https://github.com/nekonaru/cache22/compare/v1.2.0...v1.3.0
 [v1.2.0]: https://github.com/nekonaru/cache22/compare/v1.1.0...v1.2.0
 [v1.1.0]: https://github.com/nekonaru/cache22/compare/v1.0.3...v1.1.0
 [v1.0.3]: https://github.com/nekonaru/cache22/compare/v1.0.2...v1.0.3
