@@ -186,6 +186,15 @@ make build     # bin/cache22 dan bin/deadrop
 ./bin/cache22  # mendengarkan di :8080
 ```
 
+### Opsi C: Render.com (satu klik, gratis)
+
+Repo ini menyertakan Blueprint `render.yaml`. Buka https://render.com/deploy?repo=https://github.com/nekonaru/cache22, masuk, lalu setujui blueprint-nya. Render membangun Dockerfile menjadi free web service; `/healthz` dipakai sebagai health check.
+
+Free plan punya filesystem yang ephemeral, jadi servis berjalan dengan `-data -` (penyimpanan in-memory murni). Setelah deploy pertama, set `CACHE22_BASE_URL` ke URL servismu (misalnya `https://cache22-xxxx.onrender.com`) di menu **Environment**, karena link yang dibuat menyertakannya.
+
+> [!NOTE]
+> Render free services tidur setelah 15 menit tanpa traffic dan perlu sekitar satu menit untuk bangun pada request berikutnya. Kunjungan pertama setelah idle bisa lambat.
+
 ---
 
 ## Pemakaian

@@ -1,0 +1,18 @@
+Blueprint deployment for Render.com (free web service). Derived from the bundled Dockerfile.
+services:
+  - type: web
+    name: cache22
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: CACHE22_ADDR
+        value: ":8080"
+      - key: CACHE22_BASE_URL
+        sync: false
+      # Free tier filesystem is ephemeral; "-" keeps storage in memory so the
+      # service never writes to a disk that would vanish on restart.
+      - key: CACHE22_DATA
+        value: "-"
+    healthCheckPath: /healthz
+    autoDeploy: true

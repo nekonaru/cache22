@@ -2,6 +2,15 @@
 
 Semua perubahan penting di Cache22 didokumentasikan di sini. `CHANGELOG.md` (English) adalah sumber kebenaran; berkas ini terjemahan Indonesia.
 
+## v1.3.0 - 2026-11-18
+
+Rilis deployment: repo sekarang menyertakan Blueprint Render.com sehingga Cache22 bisa dideploy satu klik.
+
+### Peningkatan
+
+- **Render Blueprint.** `render.yaml` membangun Dockerfile yang ada menjadi free web service dengan `/healthz` dipakai sebagai health check. README dan README.id.md mendokumentasikan catatan ephemeral (free filesystem) dan cara menset `CACHE22_BASE_URL` setelah deploy pertama.
+- **Dokumentasi.** Section instalasi kini memuat Opsi A, B dan C dengan konten identik di kedua bahasa.
+
 ## v1.2.0 - 2026-11-17
 
 Rilis fitur: notifikasi read receipt opsional bagi operator yang ingin tahu kapan sebuah drop dibaca.
@@ -92,6 +101,7 @@ Rilis publik pertama Cache22: rahasia sekali baca yang terhapus setelah dibaca, 
 - **Penyimpanan in-memory.** Restart menghapus semua drop; penyimpanan persisten ada di roadmap.
 - **Perlindungan salinan.** Layanan tidak bisa mencegah penerima menyalin atau memotret rahasia setelah dibuka.
 
+[v1.3.0]: https://github.com/nekonaru/cache22/compare/v1.2.0...v1.3.0
 [v1.2.0]: https://github.com/nekonaru/cache22/compare/v1.1.0...v1.2.0
 [v1.1.0]: https://github.com/nekonaru/cache22/compare/v1.0.3...v1.1.0
 [v1.0.3]: https://github.com/nekonaru/cache22/compare/v1.0.2...v1.0.3

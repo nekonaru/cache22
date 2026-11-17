@@ -186,6 +186,15 @@ make build     # bin/cache22 and bin/deadrop
 ./bin/cache22  # listens on :8080
 ```
 
+### Option C: Render.com (one click, free)
+
+The repository ships a `render.yaml` Blueprint. Open https://render.com/deploy?repo=https://github.com/nekonaru/cache22, sign in, and approve the blueprint. Render builds the Dockerfile into a free web service; `/healthz` is wired as the health check.
+
+The free plan has an ephemeral filesystem, so the service runs with `-data -` (pure in-memory storage). After first deploy, set `CACHE22_BASE_URL` to your service URL (for example `https://cache22-xxxx.onrender.com`) under **Environment**, because created links embed it.
+
+> [!NOTE]
+> Render free services sleep after 15 minutes of idle traffic and take about a minute to wake on the next request. The first visit after idle may be slow.
+
 ---
 
 ## Usage
