@@ -94,6 +94,7 @@
 | **Docker image** | Distroless, non-root image ready behind your reverse proxy |
 | **Persistent storage by default** | bbolt database; survives restarts; `-data -` switches to ephemeral in-memory mode |
 | **Gzip compression** | Pages and API responses serve as gzip when the client accepts it (about a third of the bytes) |
+| **Read receipt webhook** | Optional -webhook / CACHE22_WEBHOOK_URL POST on every read; SSRF-guarded |
 | **Per-IP rate limiting** | Built-in token bucket, tuned by flag or env |
 
 ### The interface
@@ -237,8 +238,11 @@ make build     # bin/cache22 and bin/deadrop
 | `-rate-per-min` | `CACHE22_RATE_PER_MIN` | `30` |
 | `-burst` | `CACHE22_BURST` | `10` |
 | `-trust-proxy` | `CACHE22_TRUST_PROXY` | `false` |
+| `-webhook` | `CACHE22_WEBHOOK_URL` | _(empty)_ |
 
 `-trust-proxy` makes the server honor `X-Forwarded-For` for rate limiting; enable it only behind a trusted reverse proxy. Every response carries `Cache-Control: no-store`, `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, `X-Robots-Tag: noindex` and a strict `Content-Security-Policy` with a per-request nonce.
+
+`-webhook` fires a read receipt POST to the given URL whenever a drop is read. The body is JSON: `{"event":"drop.read","id":"...","kind":"text","reads_left":0,"read_at":"..."}`. URLs are validated before every send: the host must be public and none of its resolved addresses may be private, loopback, link-local or multicast. Anything else is dropped with an error log. The receipt never contains the ciphertext, key or payload.
 
 `-data` points to the bbolt database file; set it to `-` to force pure in-memory storage (no persistence). The database is created with owner-only permissions (`0600`); its rows contain only ciphertext and passphrase-wrapped meta, never plaintext or keys.
 

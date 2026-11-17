@@ -8,6 +8,7 @@ package server
 import (
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
@@ -22,6 +23,7 @@ import (
 	"github.com/nekonaru/cache22/internal/config"
 	"github.com/nekonaru/cache22/internal/ratelimit"
 	"github.com/nekonaru/cache22/internal/store"
+	"github.com/nekonaru/cache22/internal/webhook"
 	"github.com/nekonaru/cache22/web"
 )
 
@@ -48,6 +50,7 @@ type Server struct {
 	now     func() time.Time
 	page    []byte
 	handler http.Handler
+	Webhook webhook.Notifier // optional; nil means disabled
 }
 
 // New builds the handler. now may be nil (defaults to time.Now); tests
@@ -480,6 +483,24 @@ func (s *Server) readDrop(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		writeNotFound(w)
 		return
+	}
+	if s.Webhook != nil {
+		// Fire and forget with a hard timeout: the read semantics are
+		// already met; a slow webhook must never stall the response.
+		go func(d store.Drop) {
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			if err := s.Webhook.Send(ctx, webhook.Event{
+				Event:     "drop.read",
+				ID:        d.ID,
+				Kind:      d.Kind,
+				ReadsLeft: d.ReadsLeft,
+				ReadAt:    s.now().UTC().Format(time.RFC3339),
+			}); err != nil {
+				// Never log the id; a failure message is enough.
+				s.log.Warn("webhook: send failed", "err", err)
+			}
+		}(d)
 	}
 	writeJSON(w, http.StatusOK, readResponse{
 		Payload: d.Payload,

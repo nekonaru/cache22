@@ -94,6 +94,7 @@
 | **Docker image** | Distroless, non-root, siap di belakang reverse proxy |
 | **Penyimpanan persisten default** | bbolt database; selamat dari restart; `-data -` untuk mode memori sementara |
 | **Kompresi gzip** | Halaman dan respons API dikirim sebagai gzip saat klien mendukung (sekitar sepertiga byte) |
+| **Webhook read-receipt** | -webhook / CACHE22_WEBHOOK_URL opsional; POST setiap read; anti-SSRF |
 | **Rate limiting per IP** | Token bucket bawaan, disetel lewat flag atau env |
 
 ### Antarmuka
@@ -237,8 +238,11 @@ make build     # bin/cache22 dan bin/deadrop
 | `-rate-per-min` | `CACHE22_RATE_PER_MIN` | `30` |
 | `-burst` | `CACHE22_BURST` | `10` |
 | `-trust-proxy` | `CACHE22_TRUST_PROXY` | `false` |
+| `-webhook` | `CACHE22_WEBHOOK_URL` | _(kosong)_ |
 
 `-trust-proxy` membuat server mempercayai `X-Forwarded-For` untuk rate limiting; aktifkan hanya di belakang reverse proxy yang tepercaya. Semua respons membawa `Cache-Control: no-store`, `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, `X-Robots-Tag: noindex`, dan `Content-Security-Policy` ketat dengan nonce per request.
+
+`-webhook` mengirim POST notifikasi read-receipt ke URL tersebut setiap kali drop dibaca. Isinya JSON: `{"event":"drop.read","id":"...","kind":"text","reads_left":0,"read_at":"..."}`. URL divalidasi sebelum setiap pengiriman: host harus publik dan tidak boleh ada alamat hasil resolve yang private, loopback, link-local, atau multicast. Jika tidak, dilewati dengan error log. Isinya tidak pernah memuat ciphertext, kunci, atau payload.
 
 `-data` menunjuk ke file database bbolt; set menjadi `-` untuk memaksa penyimpanan in-memory (tanpa persistensi). Database dibuat dengan izin owner-only (`0600`); isinya hanya ciphertext dan meta terbungkus passphrase, tidak pernah plaintext atau kunci.
 

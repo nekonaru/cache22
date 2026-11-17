@@ -2,6 +2,20 @@
 
 All notable changes to Cache22 are documented here. The English file is the source of truth; `CHANGELOG.id.md` is the Indonesian translation.
 
+## v1.2.0 - 2026-11-17
+
+Feature release: optional read receipts for operators who want to know when a drop is read.
+
+### New features
+
+- **Webhook read receipts.** New `-webhook` / `CACHE22_WEBHOOK_URL` flag (off by default): after a successful read, the server POSTs a JSON event (`drop.read`, id, kind, reads_left, read_at) to the configured URL. Delivery is best effort with a 3 second timeout; failures are logged without the id.
+- **SSRF guard on the webhook.** Endpoint validation rejects non-http(s) schemes and any host that resolves to a private, loopback, link-local, CGNAT, multicast or unspecified address, plus all redirects. Payload contains no ciphertext, key or plaintext.
+
+### Known limitations
+
+- **Receipt is one way and unauthenticated.** The webhook URL is operator-controlled but the payload is not signed; treat the endpoint as untrusted for proof, not proof of identity.
+- **Copy protection.** The service cannot stop the recipient from copying or photographing the plaintext after reveal.
+
 ## v1.1.0 - 2026-11-15
 
 Persistent storage by default: drops now survive a restart via a bbolt database file (default `cache22.db`, owner-only permissions), completing the roadmap item for persistent storage.
@@ -78,6 +92,7 @@ First public release of Cache22: one-time secrets that burn after reading, with 
 - **In-memory storage.** A restart deletes all drops; persistent storage is tracked on the roadmap.
 - **Copy protection.** The service cannot stop the recipient from copying or photographing the secret after reading.
 
+[v1.2.0]: https://github.com/nekonaru/cache22/compare/v1.1.0...v1.2.0
 [v1.1.0]: https://github.com/nekonaru/cache22/compare/v1.0.3...v1.1.0
 [v1.0.3]: https://github.com/nekonaru/cache22/compare/v1.0.2...v1.0.3
 [v1.0.2]: https://github.com/nekonaru/cache22/compare/v1.0.1...v1.0.2

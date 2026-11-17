@@ -2,6 +2,20 @@
 
 Semua perubahan penting di Cache22 didokumentasikan di sini. `CHANGELOG.md` (English) adalah sumber kebenaran; berkas ini terjemahan Indonesia.
 
+## v1.2.0 - 2026-11-17
+
+Rilis fitur: notifikasi read receipt opsional bagi operator yang ingin tahu kapan sebuah drop dibaca.
+
+### Fitur baru
+
+- **Webhook read receipt.** Flag baru `-webhook` / `CACHE22_WEBHOOK_URL` (nonaktif secara default): setelah read berhasil, server mengirim POST JSON (`drop.read`, id, kind, reads_left, read_at) ke URL yang dikonfigurasi. Pengiriman best-effort dengan timeout 3 detik; kegagalan dicatat tanpa id.
+- **Penjaga SSRF pada webhook.** Validasi endpoint menolak skema non-http(s) dan host mana pun yang resolve ke alamat private, loopback, link-local, CGNAT, multicast, atau unspecified, serta semua redirect. Tidak ada ciphertext, kunci, atau plaintext di payload.
+
+### Keterbatasan yang diketahui
+
+- **Receipt satu arah dan tidak terautentikasi.** URL webhook dikendalikan operator tetapi payload tidak ditandatangani; perlakukan endpoint sebagai untrusted untuk pembuktian, bukan pembuktian identitas.
+- **Perlindungan salinan.** Layanan tidak bisa mencegah penerima menyalin atau memotret plaintext setelah reveal.
+
 ## v1.1.0 - 2026-11-15
 
 Penyimpanan persisten secara default: drop kini selamat dari restart lewat file database bbolt (default `cache22.db`, izin owner-only), menyelesaikan item roadmap penyimpanan persisten.
@@ -78,6 +92,7 @@ Rilis publik pertama Cache22: rahasia sekali baca yang terhapus setelah dibaca, 
 - **Penyimpanan in-memory.** Restart menghapus semua drop; penyimpanan persisten ada di roadmap.
 - **Perlindungan salinan.** Layanan tidak bisa mencegah penerima menyalin atau memotret rahasia setelah dibuka.
 
+[v1.2.0]: https://github.com/nekonaru/cache22/compare/v1.1.0...v1.2.0
 [v1.1.0]: https://github.com/nekonaru/cache22/compare/v1.0.3...v1.1.0
 [v1.0.3]: https://github.com/nekonaru/cache22/compare/v1.0.2...v1.0.3
 [v1.0.2]: https://github.com/nekonaru/cache22/compare/v1.0.1...v1.0.2
