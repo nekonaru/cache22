@@ -15,6 +15,7 @@ import (
 	"github.com/nekonaru/cache22/internal/config"
 	"github.com/nekonaru/cache22/internal/server"
 	"github.com/nekonaru/cache22/internal/store"
+	"github.com/nekonaru/cache22/internal/telegram"
 	"github.com/nekonaru/cache22/internal/webhook"
 )
 
@@ -40,7 +41,7 @@ func run() error {
 
 	var st store.Store
 	var closer func() error
-	if cfg.Data != "" {
+	if cfg.Data != "" && cfg.Data != "-" {
 		bs, err := store.NewBolt(cfg.Data, cfg.MaxTotalBytes)
 		if err != nil {
 			return err
@@ -63,9 +64,17 @@ func run() error {
 		logger.Info("webhook notifications enabled")
 	}
 
+	tg := telegram.New(cfg.TelegramToken, cfg.TelegramChatID)
+	if tg != nil {
+		logger.Info("telegram notifications enabled")
+	}
+
 	srv := server.New(cfg, st, logger, time.Now)
 	if hook != nil {
 		srv.Webhook = hook
+	}
+	if tg != nil {
+		srv.Telegram = tg
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

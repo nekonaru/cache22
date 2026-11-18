@@ -13,16 +13,18 @@ import (
 
 // Config holds all knobs for the server.
 type Config struct {
-	Addr          string  // listen address, e.g. ":8080"
-	BaseURL       string  // public base URL used in created links, e.g. "https://cache22.example.com"
-	MaxTextBytes  int     // max decoded payload size for kind=text
-	MaxFileBytes  int     // max decoded payload size for kind=file
-	MaxTotalBytes int64   // global storage budget in bytes (applies to both backends)
-	RatePerMin    float64 // per-IP sustained refill, tokens per minute
-	Burst         float64 // per-IP burst size
-	TrustProxy    bool    // trust X-Forwarded-For for client IP (enable only behind a trusted proxy)
-	Data          string  // bbolt file path; empty means pure in-memory storage
-	WebhookURL    string  // read receipt endpoint; empty means disabled (env CACHE22_WEBHOOK_URL)
+	Addr           string // listen address, e.g. ":8080"
+	BaseURL        string // public base URL used in created links, e.g. "https://cache22.example.com"
+	MaxTextBytes   int    // max decoded payload size for kind=text
+	MaxFileBytes   int    // max decoded payload size for kind=file
+	MaxTotalBytes  int64  // global storage budget in bytes (applies to both backends)
+	RatePerMin     float64
+	Burst          float64
+	TrustProxy     bool   // trust X-Forwarded-For for client IP (enable only behind a trusted proxy)
+	Data           string // bbolt file path; empty means pure in-memory storage
+	WebhookURL     string // read receipt endpoint; empty means disabled (env CACHE22_WEBHOOK_URL)
+	TelegramToken  string // Telegram bot token; empty disables Telegram read receipts (env CACHE22_TELEGRAM_BOT_TOKEN)
+	TelegramChatID string // Telegram chat id for read receipts (env CACHE22_TELEGRAM_CHAT_ID)
 }
 
 func envStr(key, def string) string {
@@ -82,6 +84,8 @@ func Parse(fs *flag.FlagSet, args []string) (Config, error) {
 	fs.BoolVar(&c.TrustProxy, "trust-proxy", envBool("CACHE22_TRUST_PROXY", false), "trust X-Forwarded-For for client IP; enable only behind a trusted proxy (env CACHE22_TRUST_PROXY)")
 	fs.StringVar(&c.Data, "data", envStr("CACHE22_DATA", "cache22.db"), "bbolt data file path (e.g. /var/lib/cache22/cache22.db); set to \"-\" for in-memory storage (env CACHE22_DATA)")
 	fs.StringVar(&c.WebhookURL, "webhook", envStr("CACHE22_WEBHOOK_URL", ""), "read receipt webhook URL (e.g. https://hooks.example.com/cache22); empty disables notifications (env CACHE22_WEBHOOK_URL)")
+	fs.StringVar(&c.TelegramToken, "telegram-bot-token", envStr("CACHE22_TELEGRAM_BOT_TOKEN", ""), "Telegram bot token for read receipts (env CACHE22_TELEGRAM_BOT_TOKEN)")
+	fs.StringVar(&c.TelegramChatID, "telegram-chat-id", envStr("CACHE22_TELEGRAM_CHAT_ID", ""), "Telegram chat id for read receipts (env CACHE22_TELEGRAM_CHAT_ID)")
 	if err := fs.Parse(args); err != nil {
 		return Config{}, err
 	}
