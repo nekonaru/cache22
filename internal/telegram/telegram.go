@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -73,7 +74,11 @@ func (n *Notifier) Send(ctx context.Context, ev webhook.Event) error {
 
 	resp, err := n.hc.Do(req)
 	if err != nil {
-		return fmt.Errorf("telegram: post: %w", err)
+		// The underlying error may contain the full URL, including the bot
+		// token in the path. Return a scrubbed message; transient details
+		// (context cancelled, DNS, timeout) are still useful for ops but
+		// never worth leaking the token.
+		return errors.New("telegram: post failed")
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {

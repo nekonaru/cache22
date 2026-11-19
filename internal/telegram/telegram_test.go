@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/nekonaru/cache22/internal/webhook"
 )
@@ -69,5 +71,25 @@ func TestSendRejectsNon2xx(t *testing.T) {
 	n.hc = ts.Client()
 	if err := n.Send(context.Background(), webhook.Event{Event: "drop.read", Kind: "text", ReadsLeft: 0, ReadAt: "2026-11-17T00:00:00Z"}); err == nil {
 		t.Fatal("non-2xx must be an error")
+	}
+}
+
+func TestSendErrorDoesNotContainToken(t *testing.T) {
+	n := New("secret-token-xyz:123", "42")
+	n.endpoint = "http://127.0.0.1:1"
+	n.hc = &http.Client{
+		Timeout: 100 * time.Millisecond,
+		Transport: &http.Transport{
+			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+				return nil, context.DeadlineExceeded
+			},
+		},
+	}
+	err := n.Send(context.Background(), webhook.Event{Event: "drop.read", Kind: "text", ReadsLeft: 0, ReadAt: "2026-11-17T00:00:00Z"})
+	if err == nil {
+		t.Fatal("send should fail")
+	}
+	if strings.Contains(err.Error(), "secret-token-xyz") {
+		t.Fatalf("error leaked token: %v", err)
 	}
 }
