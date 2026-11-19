@@ -2,6 +2,22 @@
 
 All notable changes to Cache22 are documented here. The English file is the source of truth; `CHANGELOG.id.md` is the Indonesian translation.
 
+## v1.4.0 - 2026-11-19
+
+Feature release: Telegram read receipts. Operators who already use the webhook now have a second option that lands in their Telegram.
+
+### New features
+
+- **Telegram read receipts.** New `-telegram-bot-token` / `CACHE22_TELEGRAM_BOT_TOKEN` and `-telegram-chat-id` / `CACHE22_TELEGRAM_CHAT_ID` flags (off by default). After a successful read, the server POSTs a short message to the Telegram Bot API in the configured chat. Message carries only metadata: event, kind, reads left, read time.
+- **Both notifiers can run.** Webhook and Telegram both fire on the same read when both are configured; both are best-effort with a 2.2s client timeout and never block the response.
+
+### Known limitations
+
+- **Receipt is unsigned and best-effort.** Both channels report that a read happened; neither can prove identity.
+- **Bot token is a credential.** `CACHE22_TELEGRAM_BOT_TOKEN` stays in environment only; never committed, never logged, never echoed by the server.
+
+## v1.3.1 - 2026-11-18
+
 ## v1.3.1 - 2026-11-18
 
 Patch to the Render Blueprint: Render injects PORT=10000 by default, so the free service would have failed to come up behind Render's load balancer.
@@ -111,6 +127,7 @@ First public release of Cache22: one-time secrets that burn after reading, with 
 - **In-memory storage.** A restart deletes all drops; persistent storage is tracked on the roadmap.
 - **Copy protection.** The service cannot stop the recipient from copying or photographing the secret after reading.
 
+[v1.4.0]: https://github.com/nekonaru/cache22/compare/v1.3.1...v1.4.0
 [v1.3.1]: https://github.com/nekonaru/cache22/compare/v1.3.0...v1.3.1
 [v1.3.0]: https://github.com/nekonaru/cache22/compare/v1.2.0...v1.3.0
 [v1.2.0]: https://github.com/nekonaru/cache22/compare/v1.1.0...v1.2.0

@@ -43,14 +43,15 @@ const (
 
 // Server wires routes, middleware, and dependencies.
 type Server struct {
-	cfg     config.Config
-	store   store.Store
-	limits  *ratelimit.Limiter
-	log     *slog.Logger
-	now     func() time.Time
-	page    []byte
-	handler http.Handler
-	Webhook webhook.Notifier // optional; nil means disabled
+	cfg      config.Config
+	store    store.Store
+	limits   *ratelimit.Limiter
+	log      *slog.Logger
+	now      func() time.Time
+	page     []byte
+	handler  http.Handler
+	Webhook  webhook.Notifier // optional; nil means disabled
+	Telegram webhook.Notifier // optional; nil means disabled
 }
 
 // New builds the handler. now may be nil (defaults to time.Now); tests
@@ -484,21 +485,28 @@ func (s *Server) readDrop(w http.ResponseWriter, r *http.Request) {
 		writeNotFound(w)
 		return
 	}
-	if s.Webhook != nil {
+	if s.Webhook != nil || s.Telegram != nil {
 		// Fire and forget with a hard timeout: the read semantics are
-		// already met; a slow webhook must never stall the response.
+		// already met; a slow notifier must never stall the response.
 		go func(d store.Drop) {
-			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
 			defer cancel()
-			if err := s.Webhook.Send(ctx, webhook.Event{
+			ev := webhook.Event{
 				Event:     "drop.read",
 				ID:        d.ID,
 				Kind:      d.Kind,
 				ReadsLeft: d.ReadsLeft,
 				ReadAt:    s.now().UTC().Format(time.RFC3339),
-			}); err != nil {
-				// Never log the id; a failure message is enough.
-				s.log.Warn("webhook: send failed", "err", err)
+			}
+			if s.Webhook != nil {
+				if err := s.Webhook.Send(ctx, ev); err != nil {
+					s.log.Warn("webhook: send failed", "err", err)
+				}
+			}
+			if s.Telegram != nil {
+				if err := s.Telegram.Send(ctx, ev); err != nil {
+					s.log.Warn("telegram: send failed", "err", err)
+				}
 			}
 		}(d)
 	}

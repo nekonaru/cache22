@@ -63,6 +63,44 @@ func TestWebhookEventFiredOnRead(t *testing.T) {
 	}
 }
 
+func TestTelegramEventFiredOnRead(t *testing.T) {
+	s := testServer(t)
+	notifier := &fakeNotifier{}
+	s.Telegram = notifier
+
+	rr := createDrop(t, s, `{"payload":"`+validPayload+`","ttl":"1h","kind":"text"}`)
+	var cr createResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &cr); err != nil {
+		t.Fatal(err)
+	}
+	do(t, s, "POST", "/api/drops/"+cr.ID+"/read", nil, nil)
+	waitForEvents(notifier, 1)
+	got := notifier.last()
+	if got.Event != "drop.read" || got.Kind != "text" || got.ID != cr.ID || got.ReadsLeft != 0 {
+		t.Fatalf("event mismatch: %+v", got)
+	}
+}
+
+func TestWebhookAndTelegramBothFiredTogether(t *testing.T) {
+	s := testServer(t)
+	wh := &fakeNotifier{}
+	tn := &fakeNotifier{}
+	s.Webhook = wh
+	s.Telegram = tn
+
+	rr := createDrop(t, s, `{"payload":"`+validPayload+`","ttl":"1h","kind":"text"}`)
+	var cr createResponse
+	if err := json.Unmarshal(rr.Body.Bytes(), &cr); err != nil {
+		t.Fatal(err)
+	}
+	do(t, s, "POST", "/api/drops/"+cr.ID+"/read", nil, nil)
+	waitForEvents(wh, 1)
+	waitForEvents(tn, 1)
+	if wh.count() != 1 || tn.count() != 1 {
+		t.Fatalf("wh=%d tn=%d, want 1 each", wh.count(), tn.count())
+	}
+}
+
 func TestNoWebhookByDefault(t *testing.T) {
 	s := testServer(t)
 	rr := createDrop(t, s, `{"payload":"`+validPayload+`","ttl":"1h","kind":"text"}`)
