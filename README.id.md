@@ -95,6 +95,7 @@
 | **Penyimpanan persisten default** | bbolt database; selamat dari restart; `-data -` untuk mode memori sementara |
 | **Kompresi gzip** | Halaman dan respons API dikirim sebagai gzip saat klien mendukung (sekitar sepertiga byte) |
 | **Webhook read-receipt** | -webhook / CACHE22_WEBHOOK_URL opsional; POST setiap read; anti-SSRF |
+| **Telegram read receipt** | -telegram-bot-token + -telegram-chat-id opsional; pesan push via Telegram Bot API |
 | **Rate limiting per IP** | Token bucket bawaan, disetel lewat flag atau env |
 
 ### Antarmuka
@@ -248,10 +249,14 @@ Free plan punya filesystem yang ephemeral, jadi servis berjalan dengan `-data -`
 | `-burst` | `CACHE22_BURST` | `10` |
 | `-trust-proxy` | `CACHE22_TRUST_PROXY` | `false` |
 | `-webhook` | `CACHE22_WEBHOOK_URL` | _(kosong)_ |
+| `-telegram-bot-token` | `CACHE22_TELEGRAM_BOT_TOKEN` | _(kosong)_ |
+| `-telegram-chat-id` | `CACHE22_TELEGRAM_CHAT_ID` | _(kosong)_ |
 
 `-trust-proxy` membuat server mempercayai `X-Forwarded-For` untuk rate limiting; aktifkan hanya di belakang reverse proxy yang tepercaya. Semua respons membawa `Cache-Control: no-store`, `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, `X-Robots-Tag: noindex`, dan `Content-Security-Policy` ketat dengan nonce per request.
 
 `-webhook` mengirim POST notifikasi read-receipt ke URL tersebut setiap kali drop dibaca. Isinya JSON: `{"event":"drop.read","id":"...","kind":"text","reads_left":0,"read_at":"..."}`. URL divalidasi sebelum setiap pengiriman: host harus publik dan tidak boleh ada alamat hasil resolve yang private, loopback, link-local, atau multicast. Jika tidak, dilewati dengan error log. Isinya tidak pernah memuat ciphertext, kunci, atau payload.
+
+`-telegram-bot-token` dan `-telegram-chat-id` mengirim pesan Telegram ke chat bot untuk event yang sama ketika keduanya di-set. Pesan memuat hanya metadata (event drop, kind, sisa baca, waktu baca); tidak pernah memuat payload. Token bot dimuat di path URL saja; redirect ditolak.
 
 `-data` menunjuk ke file database bbolt; set menjadi `-` untuk memaksa penyimpanan in-memory (tanpa persistensi). Database dibuat dengan izin owner-only (`0600`); isinya hanya ciphertext dan meta terbungkus passphrase, tidak pernah plaintext atau kunci.
 
@@ -269,6 +274,8 @@ cache22/
 │   ├── crypt/                # kripto sisi CLI, cermin browser
 │   ├── ratelimit/            # token bucket per IP
 │   ├── server/               # handler, header, logging
+│   ├── telegram/             # notifikasi read receipt Telegram
+│   ├── webhook/              # read receipt client, SSRF-guarded
 │   └── store/                # interface Store, implementasi memori dan bbolt
 ├── web/
 │   ├── index.html            # UI satu halaman

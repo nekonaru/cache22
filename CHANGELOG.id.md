@@ -2,6 +2,22 @@
 
 Semua perubahan penting di Cache22 didokumentasikan di sini. `CHANGELOG.md` (English) adalah sumber kebenaran; berkas ini terjemahan Indonesia.
 
+## v1.4.0 - 2026-11-19
+
+Rilis fitur: notifikasi read receipt di Telegram. Operator yang sudah memakai webhook kini punya opsi kedua yang masuk ke Telegram mereka.
+
+### Fitur baru
+
+- **Telegram read receipts.** Flag baru `-telegram-bot-token` / `CACHE22_TELEGRAM_BOT_TOKEN` dan `-telegram-chat-id` / `CACHE22_TELEGRAM_CHAT_ID` (nonaktif secara default). Setelah read berhasil, server mengirim pesan singkat ke Telegram Bot API di chat yang dikonfigurasi. Pesan hanya memuat metadata: event, kind, sisa baca, waktu baca.
+- **Keduanya bisa aktif.** Webhook dan Telegram sama-sama dipicu pada read yang sama ketika keduanya dikonfigurasi; keduanya best-effort dengan timeout klien 2,2 detik dan tidak pernah menahan respons.
+
+### Keterbatasan yang diketahui
+
+- **Receipt tidak bersignature dan best-effort.** Kedua kanal melaporkan ada read; keduanya tidak bisa membuktikan identitas.
+- **Token bot adalah kredensial.** `CACHE22_TELEGRAM_BOT_TOKEN` hanya di environment; tidak pernah di-commit, di-log, atau di-echo.
+
+## v1.3.1 - 2026-11-18
+
 ## v1.3.1 - 2026-11-18
 
 Patch ke Blueprint Render: Render mengirim PORT=10000 secara default, jadi servis gratis bakal gagal mengikat port di belakang load balancer Render.
@@ -111,6 +127,7 @@ Rilis publik pertama Cache22: rahasia sekali baca yang terhapus setelah dibaca, 
 - **Penyimpanan in-memory.** Restart menghapus semua drop; penyimpanan persisten ada di roadmap.
 - **Perlindungan salinan.** Layanan tidak bisa mencegah penerima menyalin atau memotret rahasia setelah dibuka.
 
+[v1.4.0]: https://github.com/nekonaru/cache22/compare/v1.3.1...v1.4.0
 [v1.3.1]: https://github.com/nekonaru/cache22/compare/v1.3.0...v1.3.1
 [v1.3.0]: https://github.com/nekonaru/cache22/compare/v1.2.0...v1.3.0
 [v1.2.0]: https://github.com/nekonaru/cache22/compare/v1.1.0...v1.2.0

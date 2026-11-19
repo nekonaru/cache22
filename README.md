@@ -95,6 +95,7 @@
 | **Persistent storage by default** | bbolt database; survives restarts; `-data -` switches to ephemeral in-memory mode |
 | **Gzip compression** | Pages and API responses serve as gzip when the client accepts it (about a third of the bytes) |
 | **Read receipt webhook** | Optional -webhook / CACHE22_WEBHOOK_URL POST on every read; SSRF-guarded |
+| **Telegram read receipt** | Optional -telegram-bot-token + -telegram-chat-id; push message via the Telegram Bot API |
 | **Per-IP rate limiting** | Built-in token bucket, tuned by flag or env |
 
 ### The interface
@@ -248,10 +249,14 @@ The free plan has an ephemeral filesystem, so the service runs with `-data -` (p
 | `-burst` | `CACHE22_BURST` | `10` |
 | `-trust-proxy` | `CACHE22_TRUST_PROXY` | `false` |
 | `-webhook` | `CACHE22_WEBHOOK_URL` | _(empty)_ |
+| `-telegram-bot-token` | `CACHE22_TELEGRAM_BOT_TOKEN` | _(empty)_ |
+| `-telegram-chat-id` | `CACHE22_TELEGRAM_CHAT_ID` | _(empty)_ |
 
 `-trust-proxy` makes the server honor `X-Forwarded-For` for rate limiting; enable it only behind a trusted reverse proxy. Every response carries `Cache-Control: no-store`, `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, `X-Robots-Tag: noindex` and a strict `Content-Security-Policy` with a per-request nonce.
 
 `-webhook` fires a read receipt POST to the given URL whenever a drop is read. The body is JSON: `{"event":"drop.read","id":"...","kind":"text","reads_left":0,"read_at":"..."}`. URLs are validated before every send: the host must be public and none of its resolved addresses may be private, loopback, link-local or multicast. Anything else is dropped with an error log. The receipt never contains the ciphertext, key or payload.
+
+`-telegram-bot-token` and `-telegram-chat-id` fire a Telegram message to a bot chat on the same events when both are set. The message carries only metadata (drop event, kind, reads left, read time), never the payload. The bot token rides in the URL path only; redirects are refused.
 
 `-data` points to the bbolt database file; set it to `-` to force pure in-memory storage (no persistence). The database is created with owner-only permissions (`0600`); its rows contain only ciphertext and passphrase-wrapped meta, never plaintext or keys.
 
@@ -269,6 +274,8 @@ cache22/
 │   ├── crypt/                # CLI-side crypto, mirrors the browser
 │   ├── ratelimit/            # per-IP token bucket
 │   ├── server/               # handlers, headers, logging
+│   ├── telegram/             # Telegram bot read receipts
+│   ├── webhook/              # read receipt client, SSRF-guarded
 │   └── store/                # Store: interface, in-memory and bbolt
 ├── web/
 │   ├── index.html            # the single-page UI
