@@ -3,9 +3,15 @@ CLI     := deadrop
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -s -w -X main.version=$(VERSION)
 
-.PHONY: all build test vet run cli docker clean
+.PHONY: all build test verify hooks vet run cli docker clean
 
 all: vet test build
+
+hooks: ## install the local pre-commit hook once after cloning
+	git config core.hooksPath .githooks
+
+verify: ## run the full local verification script
+	sh scripts/verify.sh
 
 build: ## build server + CLI into bin/
 	go build -trimpath -ldflags="$(LDFLAGS)" -o bin/$(BINARY) ./cmd/cache22

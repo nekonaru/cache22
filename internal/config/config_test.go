@@ -1,6 +1,7 @@
 package config
 
 import (
+	"bytes"
 	"flag"
 	"io"
 	"strings"
@@ -123,5 +124,48 @@ func TestInvalidEnvFallsBackToDefault(t *testing.T) {
 	}
 	if c.MaxTextBytes != 65536 || c.Burst != 10 || c.TrustProxy {
 		t.Fatalf("invalid env must fall back: %+v", c)
+	}
+}
+
+func TestSecretsNeverAppearInFlagOutput(t *testing.T) {
+	const secretValue = "SENTINEL_SECRET_VALUE"
+	t.Setenv("CACHE22_TELEGRAM_BOT_TOKEN", secretValue)
+	t.Setenv("CACHE22_NOTIFY_SECRET", secretValue)
+
+	var buf bytes.Buffer
+	fs := flag.NewFlagSet("secret-test", flag.ContinueOnError)
+	fs.SetOutput(&buf)
+	c, err := Parse(fs, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.TelegramToken != secretValue || c.NotifySecret != secretValue {
+		t.Fatal("environment secrets must still be loaded")
+	}
+	if strings.Contains(buf.String(), secretValue) {
+		t.Fatalf("flag output leaked the secret: %s", buf.String())
+	}
+
+	fs2 := flag.NewFlagSet("secret-test-2", flag.ContinueOnError)
+	var buf2 bytes.Buffer
+	fs2.SetOutput(&buf2)
+	if _, err := Parse(fs2, []string{"-bogus"}); err == nil {
+		t.Fatal("unknown flag must fail")
+	}
+	if strings.Contains(buf2.String(), secretValue) {
+		t.Fatalf("error output leaked the secret: %s", buf2.String())
+	}
+}
+
+func TestExplicitSecretFlagWins(t *testing.T) {
+	t.Setenv("CACHE22_NOTIFY_SECRET", "from-env")
+	fs := flag.NewFlagSet("secret-flag", flag.ContinueOnError)
+	fs.SetOutput(io.Discard)
+	c, err := Parse(fs, []string{"-notify-secret", "from-flag"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.NotifySecret != "from-flag" {
+		t.Fatalf("explicit flag must win: %q", c.NotifySecret)
 	}
 }

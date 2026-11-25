@@ -296,6 +296,10 @@ cache22/
 
 ## Pengembangan
 
+### Persiapan awal
+
+Jalankan `make hooks` sekali setelah clone. Perintah ini memasang `.githooks/pre-commit` yang memeriksa format, vet, dan tes sebelum setiap commit. CI tetap menjadi penentu objektif.
+
 ### Mengubah teks UI
 
 1. Edit objek `en` dan `id` di bagian bawah `web/index.html` bersamaan.

@@ -194,9 +194,9 @@ func TestWebhookSignatureHeader(t *testing.T) {
 }
 
 func TestNoSignatureWithoutSecret(t *testing.T) {
-	var gotSig string
+	var gotSigs []string
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotSig = r.Header.Get("X-Cache22-Signature")
+		gotSigs = r.Header.Values("X-Cache22-Signature")
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer ts.Close()
@@ -205,15 +205,15 @@ func TestNoSignatureWithoutSecret(t *testing.T) {
 	if err := c.Send(context.Background(), Event{Event: "drop.read", Kind: "text", ReadsLeft: 0, ReadAt: "2026-11-17T00:00:00Z"}); err != nil {
 		t.Fatal(err)
 	}
-	if gotSig != "" {
-		t.Fatalf("unexpected signature header %q", gotSig)
+	if len(gotSigs) != 0 {
+		t.Fatalf("unexpected signature headers %v", gotSigs)
 	}
 }
 
 func TestWebhookSignatureWrongSecret(t *testing.T) {
 	body := []byte(`{"event":"drop.read"}`)
-	good := signature("right", body)
-	bad := signature("wrong", body)
+	good := signBody("right", body)
+	bad := signBody("wrong", body)
 	if good == bad {
 		t.Fatal("different secrets must not produce the same signature")
 	}

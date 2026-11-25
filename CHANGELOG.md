@@ -19,9 +19,6 @@ Feature release: signed webhook receipts plus a stricter verification pipeline.
 
 - **Telegram receipts stay unsigned.** The Bot API has no receiver verification surface; use the webhook with a secret when authenticity matters.
 - **Receipts remain best-effort.** Neither channel blocks the read response or retries after failure.
-
-## v1.4.0 - 2026-11-19
-
 ## v1.4.0 - 2026-11-19
 
 Feature release: Telegram read receipts. Operators who already use the webhook now have a second option that lands in their Telegram.
@@ -35,9 +32,6 @@ Feature release: Telegram read receipts. Operators who already use the webhook n
 
 - **Receipt is unsigned and best-effort.** Both channels report that a read happened; neither can prove identity.
 - **Bot token is a credential.** `CACHE22_TELEGRAM_BOT_TOKEN` stays in environment only; never committed, never logged, never echoed by the server.
-
-## v1.3.1 - 2026-11-18
-
 ## v1.3.1 - 2026-11-18
 
 Patch to the Render Blueprint: Render injects PORT=10000 by default, so the free service would have failed to come up behind Render's load balancer.
@@ -45,9 +39,6 @@ Patch to the Render Blueprint: Render injects PORT=10000 by default, so the free
 ### Bug fixes
 
 - **Render Blueprint.** `CACHE22_ADDR` is now `:10000` to match the port Render exposes for web services by default; the service listens there instead of `:8080` when deployed via the Blueprint.
-
-## v1.3.0 - 2026-11-18
-
 ## v1.3.0 - 2026-11-18
 
 Deployment release: the repo now ships a Render.com Blueprint so anyone can deploy Cache22 with one click.

@@ -19,9 +19,6 @@ Rilis fitur: webhook read receipt bersignature dan pipeline verifikasi yang lebi
 
 - **Receipt Telegram tetap tidak bersignature.** Bot API tidak punya permukaan verifikasi penerima; gunakan webhook dengan secret bila keaslian penting.
 - **Receipt tetap best-effort.** Kedua kanal tidak menahan respons read dan tidak mencoba ulang setelah gagal.
-
-## v1.4.0 - 2026-11-19
-
 ## v1.4.0 - 2026-11-19
 
 Rilis fitur: notifikasi read receipt di Telegram. Operator yang sudah memakai webhook kini punya opsi kedua yang masuk ke Telegram mereka.
@@ -35,9 +32,6 @@ Rilis fitur: notifikasi read receipt di Telegram. Operator yang sudah memakai we
 
 - **Receipt tidak bersignature dan best-effort.** Kedua kanal melaporkan ada read; keduanya tidak bisa membuktikan identitas.
 - **Token bot adalah kredensial.** `CACHE22_TELEGRAM_BOT_TOKEN` hanya di environment; tidak pernah di-commit, di-log, atau di-echo.
-
-## v1.3.1 - 2026-11-18
-
 ## v1.3.1 - 2026-11-18
 
 Patch ke Blueprint Render: Render mengirim PORT=10000 secara default, jadi servis gratis bakal gagal mengikat port di belakang load balancer Render.
@@ -45,9 +39,6 @@ Patch ke Blueprint Render: Render mengirim PORT=10000 secara default, jadi servi
 ### Perbaikan bug
 
 - **Render Blueprint.** `CACHE22_ADDR` sekarang `:10000` mengikuti default port web service Render; servis listen di situ saat deploy lewat Blueprint, bukan `:8080`.
-
-## v1.3.0 - 2026-11-18
-
 ## v1.3.0 - 2026-11-18
 
 Rilis deployment: repo sekarang menyertakan Blueprint Render.com sehingga Cache22 bisa dideploy satu klik.

@@ -296,6 +296,10 @@ cache22/
 
 ## Development
 
+### First setup
+
+Run `make hooks` once after cloning. This installs `.githooks/pre-commit`, which checks formatting, vet and tests before each commit. CI remains the objective judge.
+
 ### Changing the UI text
 
 1. Edit the `en` and `id` objects at the bottom of `web/index.html` together.
