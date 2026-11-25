@@ -2,6 +2,26 @@
 
 All notable changes to Cache22 are documented here. The English file is the source of truth; `CHANGELOG.id.md` is the Indonesian translation.
 
+## v1.5.0 - 2026-11-26
+
+Feature release: signed webhook receipts plus a stricter verification pipeline.
+
+### New features
+
+- **Signed webhook receipts.** New `-notify-secret` / `CACHE22_NOTIFY_SECRET` flag (off by default) adds `X-Cache22-Signature: sha256=<HMAC of the raw JSON body>` so a receiver can verify each read receipt.
+
+### Improvements
+
+- **Verification pipeline.** Added a pre-commit hook, a local `scripts/verify.sh` and a 60 percent coverage gate in CI; total coverage is now 66 percent.
+- **Tests.** Added config parsing tests (100 percent coverage) and CLI flag tests (35 percent coverage).
+
+### Known limitations
+
+- **Telegram receipts stay unsigned.** The Bot API has no receiver verification surface; use the webhook with a secret when authenticity matters.
+- **Receipts remain best-effort.** Neither channel blocks the read response or retries after failure.
+
+## v1.4.0 - 2026-11-19
+
 ## v1.4.0 - 2026-11-19
 
 Feature release: Telegram read receipts. Operators who already use the webhook now have a second option that lands in their Telegram.
@@ -127,6 +147,7 @@ First public release of Cache22: one-time secrets that burn after reading, with 
 - **In-memory storage.** A restart deletes all drops; persistent storage is tracked on the roadmap.
 - **Copy protection.** The service cannot stop the recipient from copying or photographing the secret after reading.
 
+[v1.5.0]: https://github.com/nekonaru/cache22/compare/v1.4.0...v1.5.0
 [v1.4.0]: https://github.com/nekonaru/cache22/compare/v1.3.1...v1.4.0
 [v1.3.1]: https://github.com/nekonaru/cache22/compare/v1.3.0...v1.3.1
 [v1.3.0]: https://github.com/nekonaru/cache22/compare/v1.2.0...v1.3.0

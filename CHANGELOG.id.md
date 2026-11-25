@@ -2,6 +2,26 @@
 
 Semua perubahan penting di Cache22 didokumentasikan di sini. `CHANGELOG.md` (English) adalah sumber kebenaran; berkas ini terjemahan Indonesia.
 
+## v1.5.0 - 2026-11-26
+
+Rilis fitur: webhook read receipt bersignature dan pipeline verifikasi yang lebih ketat.
+
+### Fitur baru
+
+- **Webhook read receipt bersignature.** Flag baru `-notify-secret` / `CACHE22_NOTIFY_SECRET` (nonaktif secara default) menambahkan `X-Cache22-Signature: sha256=<HMAC dari body JSON mentah>` agar penerima bisa memverifikasi setiap receipt.
+
+### Peningkatan
+
+- **Pipeline verifikasi.** Menambahkan pre-commit hook, `scripts/verify.sh` lokal, dan ambang coverage 60 persen di CI; coverage total sekarang 66 persen.
+- **Tes.** Menambahkan tes parsing config (coverage 100 persen) dan tes flag CLI (coverage 35 persen).
+
+### Keterbatasan yang diketahui
+
+- **Receipt Telegram tetap tidak bersignature.** Bot API tidak punya permukaan verifikasi penerima; gunakan webhook dengan secret bila keaslian penting.
+- **Receipt tetap best-effort.** Kedua kanal tidak menahan respons read dan tidak mencoba ulang setelah gagal.
+
+## v1.4.0 - 2026-11-19
+
 ## v1.4.0 - 2026-11-19
 
 Rilis fitur: notifikasi read receipt di Telegram. Operator yang sudah memakai webhook kini punya opsi kedua yang masuk ke Telegram mereka.
@@ -127,6 +147,7 @@ Rilis publik pertama Cache22: rahasia sekali baca yang terhapus setelah dibaca, 
 - **Penyimpanan in-memory.** Restart menghapus semua drop; penyimpanan persisten ada di roadmap.
 - **Perlindungan salinan.** Layanan tidak bisa mencegah penerima menyalin atau memotret rahasia setelah dibuka.
 
+[v1.5.0]: https://github.com/nekonaru/cache22/compare/v1.4.0...v1.5.0
 [v1.4.0]: https://github.com/nekonaru/cache22/compare/v1.3.1...v1.4.0
 [v1.3.1]: https://github.com/nekonaru/cache22/compare/v1.3.0...v1.3.1
 [v1.3.0]: https://github.com/nekonaru/cache22/compare/v1.2.0...v1.3.0
