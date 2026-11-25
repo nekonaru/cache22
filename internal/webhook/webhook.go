@@ -9,12 +9,16 @@ package webhook
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 )
 
@@ -37,6 +41,8 @@ type Notifier interface {
 type Client struct {
 	url     *url.URL
 	hc      *http.Client
+	mu      sync.RWMutex
+	secret  string // optional HMAC signing key for receiver verification
 	resolve func(ctx context.Context, host string) ([]net.IP, error)
 }
 
@@ -68,6 +74,29 @@ func New(raw string) (*Client, error) {
 			return net.DefaultResolver.LookupIP(ctx, "ip", host)
 		},
 	}, nil
+}
+
+// SetSigningSecret enables an HMAC-SHA256 signature header on each POST.
+// It must be called before Send; the key is never transmitted except as
+// the signature itself. An empty secret leaves signing off.
+func (c *Client) SetSigningSecret(secret string) {
+	c.mu.Lock()
+	c.secret = secret
+	c.mu.Unlock()
+}
+
+// SignatureEnabled reports whether receipts are signed.
+func (c *Client) SignatureEnabled() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.secret != ""
+}
+
+// signBody returns a stable HMAC-SHA256 signature over exact raw JSON bytes.
+func signBody(secret string, body []byte) string {
+	mac := hmac.New(sha256.New, []byte(secret))
+	_, _ = mac.Write(body)
+	return "sha256=" + hex.EncodeToString(mac.Sum(nil))
 }
 
 // IsPrivate reports whether ip is private, loopback, link-local, or otherwise
@@ -133,6 +162,12 @@ func (c *Client) Send(ctx context.Context, ev Event) error {
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "cache22-webhook/1.0")
+	c.mu.RLock()
+	secret := c.secret
+	c.mu.RUnlock()
+	if secret != "" {
+		req.Header.Set("X-Cache22-Signature", signBody(secret, body))
+	}
 	resp, err := c.hc.Do(req)
 	if err != nil {
 		return fmt.Errorf("webhook: post: %w", err)

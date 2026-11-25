@@ -25,6 +25,7 @@ type Config struct {
 	WebhookURL     string // read receipt endpoint; empty means disabled (env CACHE22_WEBHOOK_URL)
 	TelegramToken  string // Telegram bot token; empty disables Telegram read receipts (env CACHE22_TELEGRAM_BOT_TOKEN)
 	TelegramChatID string // Telegram chat id for read receipts (env CACHE22_TELEGRAM_CHAT_ID)
+	NotifySecret   string // optional HMAC key for signed webhook receipts (env CACHE22_NOTIFY_SECRET)
 }
 
 func envStr(key, def string) string {
@@ -84,10 +85,21 @@ func Parse(fs *flag.FlagSet, args []string) (Config, error) {
 	fs.BoolVar(&c.TrustProxy, "trust-proxy", envBool("CACHE22_TRUST_PROXY", false), "trust X-Forwarded-For for client IP; enable only behind a trusted proxy (env CACHE22_TRUST_PROXY)")
 	fs.StringVar(&c.Data, "data", envStr("CACHE22_DATA", "cache22.db"), "bbolt data file path (e.g. /var/lib/cache22/cache22.db); set to \"-\" for in-memory storage (env CACHE22_DATA)")
 	fs.StringVar(&c.WebhookURL, "webhook", envStr("CACHE22_WEBHOOK_URL", ""), "read receipt webhook URL (e.g. https://hooks.example.com/cache22); empty disables notifications (env CACHE22_WEBHOOK_URL)")
-	fs.StringVar(&c.TelegramToken, "telegram-bot-token", envStr("CACHE22_TELEGRAM_BOT_TOKEN", ""), "Telegram bot token for read receipts (env CACHE22_TELEGRAM_BOT_TOKEN)")
+	// Secrets are read after parsing (not used as flag defaults) so the
+	// flag package never prints their values in usage or error output.
+	fs.StringVar(&c.TelegramToken, "telegram-bot-token", "", "Telegram bot token for read receipts (env CACHE22_TELEGRAM_BOT_TOKEN)")
 	fs.StringVar(&c.TelegramChatID, "telegram-chat-id", envStr("CACHE22_TELEGRAM_CHAT_ID", ""), "Telegram chat id for read receipts (env CACHE22_TELEGRAM_CHAT_ID)")
+	fs.StringVar(&c.NotifySecret, "notify-secret", "", "HMAC secret for signed webhook receipts (env CACHE22_NOTIFY_SECRET)")
 	if err := fs.Parse(args); err != nil {
 		return Config{}, err
+	}
+	set := make(map[string]bool)
+	fs.Visit(func(f *flag.Flag) { set[f.Name] = true })
+	if !set["telegram-bot-token"] {
+		c.TelegramToken = os.Getenv("CACHE22_TELEGRAM_BOT_TOKEN")
+	}
+	if !set["notify-secret"] {
+		c.NotifySecret = os.Getenv("CACHE22_NOTIFY_SECRET")
 	}
 	if !strings.HasPrefix(c.BaseURL, "http://") && !strings.HasPrefix(c.BaseURL, "https://") {
 		return Config{}, fmt.Errorf("base-url must start with http:// or https://, got %q", c.BaseURL)

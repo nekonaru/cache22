@@ -251,12 +251,15 @@ Free plan punya filesystem yang ephemeral, jadi servis berjalan dengan `-data -`
 | `-webhook` | `CACHE22_WEBHOOK_URL` | _(kosong)_ |
 | `-telegram-bot-token` | `CACHE22_TELEGRAM_BOT_TOKEN` | _(kosong)_ |
 | `-telegram-chat-id` | `CACHE22_TELEGRAM_CHAT_ID` | _(kosong)_ |
+| `-notify-secret` | `CACHE22_NOTIFY_SECRET` | _(kosong)_ |
 
 `-trust-proxy` membuat server mempercayai `X-Forwarded-For` untuk rate limiting; aktifkan hanya di belakang reverse proxy yang tepercaya. Semua respons membawa `Cache-Control: no-store`, `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff`, `X-Robots-Tag: noindex`, dan `Content-Security-Policy` ketat dengan nonce per request.
 
 `-webhook` mengirim POST notifikasi read-receipt ke URL tersebut setiap kali drop dibaca. Isinya JSON: `{"event":"drop.read","id":"...","kind":"text","reads_left":0,"read_at":"..."}`. URL divalidasi sebelum setiap pengiriman: host harus publik dan tidak boleh ada alamat hasil resolve yang private, loopback, link-local, atau multicast. Jika tidak, dilewati dengan error log. Isinya tidak pernah memuat ciphertext, kunci, atau payload.
 
 `-telegram-bot-token` dan `-telegram-chat-id` mengirim pesan Telegram ke chat bot untuk event yang sama ketika keduanya di-set. Pesan memuat hanya metadata (event drop, kind, sisa baca, waktu baca); tidak pernah memuat payload. Token bot dimuat di path URL saja; redirect ditolak.
+
+`-notify-secret` mengaktifkan signature HMAC-SHA256 pada webhook receipt. Header `X-Cache22-Signature: sha256=<hex>` dihitung dari byte JSON persis apa adanya. Penerima dengan secret yang sama bisa menolak receipt palsu atau diubah. Secret tidak pernah dicatat atau dikembalikan.
 
 `-data` menunjuk ke file database bbolt; set menjadi `-` untuk memaksa penyimpanan in-memory (tanpa persistensi). Database dibuat dengan izin owner-only (`0600`); isinya hanya ciphertext dan meta terbungkus passphrase, tidak pernah plaintext atau kunci.
 
@@ -292,6 +295,10 @@ cache22/
 ---
 
 ## Pengembangan
+
+### Persiapan awal
+
+Jalankan `make hooks` sekali setelah clone. Perintah ini memasang `.githooks/pre-commit` yang memeriksa format, vet, dan tes sebelum setiap commit. CI tetap menjadi penentu objektif.
 
 ### Mengubah teks UI
 

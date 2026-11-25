@@ -31,6 +31,13 @@ jobs:
       - name: go test -race
         run: go test -race ./...
 
+      - name: coverage gate
+        run: |
+          go test -coverprofile=coverage.out ./...
+          total=$(go tool cover -func=coverage.out | awk '/^total:/ {gsub("%", "", $3); print $3}')
+          echo "total coverage: $total%"
+          awk -v v="$total" 'BEGIN {if (v < 60) {print "coverage below 60%"; exit 1}}'
+
       - name: build server + CLI
         run: |
           go build -trimpath -o bin/cache22 ./cmd/cache22

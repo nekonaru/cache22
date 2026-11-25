@@ -1,7 +1,12 @@
 package webhook
 
 import (
+	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"io"
 	"net"
@@ -10,6 +15,38 @@ import (
 	"strings"
 	"testing"
 )
+
+// testClient builds a client pointed at a local httptest server while the
+// SSRF validator still sees a public DNS pool.
+func testClient(t *testing.T, serverURL string) *Client {
+	t.Helper()
+	c, err := New("http://hook.example/hook")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.resolve = func(ctx context.Context, host string) ([]net.IP, error) {
+		return []net.IP{net.ParseIP("1.1.1.1")}, nil
+	}
+	host := strings.TrimPrefix(serverURL, "http://")
+	c.hc.Transport = roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		req = req.Clone(req.Context())
+		req.URL.Scheme = "http"
+		req.URL.Host = host
+		return http.DefaultTransport.RoundTrip(req)
+	})
+	return c
+}
+
+func signature(secret string, body []byte) string {
+	mac := hmac.New(sha256.New, []byte(secret))
+	_, _ = mac.Write(body)
+	return "sha256=" + hex.EncodeToString(mac.Sum(nil))
+}
+
+// verifySignature is the independent check a receiver would run.
+func verifySignature(secret string, body []byte, header string) bool {
+	return hmac.Equal([]byte(header), []byte(signature(secret, body)))
+}
 
 func TestNewRejectsBadURLs(t *testing.T) {
 	for _, raw := range []string{"", "ftp://example.com/x", "https://", "nota url", "http://"} {
@@ -97,7 +134,6 @@ func TestValidateEndpointDNSResolution(t *testing.T) {
 	if err := c.validateEndpoint(context.Background()); err != nil {
 		t.Fatalf("public pool should pass: %v", err)
 	}
-
 	c.resolve = func(ctx context.Context, host string) ([]net.IP, error) {
 		return nil, errors.New("nxdomain")
 	}
@@ -116,24 +152,8 @@ func TestSendPostsEvent(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	}))
 	defer ts.Close()
-	tsHost := ts.Listener.Addr().String()
 
-	c, err := New("http://hook.example/hook")
-	if err != nil {
-		t.Fatal(err)
-	}
-	// The endpoint validates via DNS; force it to report a public pool.
-	c.resolve = func(ctx context.Context, host string) ([]net.IP, error) {
-		return []net.IP{net.ParseIP("1.1.1.1")}, nil
-	}
-	// The HTTP client must still reach the httptest server even though the
-	// hostname above is fictional; route it through a custom transport.
-	c.hc.Transport = roundTripFunc(func(req *http.Request) (*http.Response, error) {
-		req = req.Clone(req.Context())
-		req.URL.Scheme = "http"
-		req.URL.Host = tsHost
-		return http.DefaultTransport.RoundTrip(req)
-	})
+	c := testClient(t, ts.URL)
 	ev := Event{Event: "drop.read", ID: "abc", Kind: "text", ReadsLeft: 0, ReadAt: "2026-11-17T00:00:00Z"}
 	if err := c.Send(context.Background(), ev); err != nil {
 		t.Fatal(err)
@@ -149,10 +169,60 @@ func TestSendPostsEvent(t *testing.T) {
 	}
 }
 
-type roundTripFunc func(*http.Request) (*http.Response, error)
+func TestWebhookSignatureHeader(t *testing.T) {
+	var got []byte
+	var gotSig string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got, _ = io.ReadAll(r.Body)
+		gotSig = r.Header.Get("X-Cache22-Signature")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
 
-func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
-	return f(req)
+	c := testClient(t, ts.URL)
+	c.SetSigningSecret("audit-secret")
+	ev := Event{Event: "drop.read", ID: "abc", Kind: "text", ReadsLeft: 0, ReadAt: "2026-11-17T00:00:00Z"}
+	if err := c.Send(context.Background(), ev); err != nil {
+		t.Fatal(err)
+	}
+	if !verifySignature("audit-secret", got, gotSig) {
+		t.Fatalf("signature %q does not verify against body %s", gotSig, got)
+	}
+	if verifySignature("wrong-secret", got, gotSig) {
+		t.Fatal("wrong secret must not verify")
+	}
+}
+
+func TestNoSignatureWithoutSecret(t *testing.T) {
+	var gotSigs []string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotSigs = r.Header.Values("X-Cache22-Signature")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+
+	c := testClient(t, ts.URL)
+	if err := c.Send(context.Background(), Event{Event: "drop.read", Kind: "text", ReadsLeft: 0, ReadAt: "2026-11-17T00:00:00Z"}); err != nil {
+		t.Fatal(err)
+	}
+	if len(gotSigs) != 0 {
+		t.Fatalf("unexpected signature headers %v", gotSigs)
+	}
+}
+
+func TestWebhookSignatureWrongSecret(t *testing.T) {
+	body := []byte(`{"event":"drop.read"}`)
+	good := signBody("right", body)
+	bad := signBody("wrong", body)
+	if good == bad {
+		t.Fatal("different secrets must not produce the same signature")
+	}
+	if !verifySignature("right", body, good) {
+		t.Fatal("correct secret must verify")
+	}
+	if verifySignature("wrong", body, good) {
+		t.Fatal("wrong secret must not verify")
+	}
 }
 
 func TestSendRejectsPrivateEndpoint(t *testing.T) {
@@ -170,14 +240,28 @@ func TestSendRejectsRedirect(t *testing.T) {
 		http.Redirect(w, r, "https://example.com/", http.StatusFound)
 	}))
 	defer ts.Close()
-	c, err := New(ts.URL)
-	if err != nil {
-		t.Fatal(err)
-	}
-	c.resolve = func(ctx context.Context, host string) ([]net.IP, error) {
-		return []net.IP{net.ParseIP("1.1.1.1")}, nil
-	}
+	c := testClient(t, ts.URL)
 	if err := c.Send(context.Background(), Event{Event: "drop.read"}); err == nil {
 		t.Fatal("redirect must be refused")
 	}
+}
+
+func TestEventMarshalIsStable(t *testing.T) {
+	a, err := json.Marshal(Event{Event: "drop.read", ID: "x", Kind: "text", ReadsLeft: 0, ReadAt: "2026-11-17T00:00:00Z"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := json.Marshal(Event{Event: "drop.read", ID: "x", Kind: "text", ReadsLeft: 0, ReadAt: "2026-11-17T00:00:00Z"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(a, b) {
+		t.Fatal("event JSON must be deterministic for signature verification")
+	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
 }

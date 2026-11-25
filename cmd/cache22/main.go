@@ -32,6 +32,22 @@ func main() {
 	}
 }
 
+func makeWebhook(cfg config.Config, logger *slog.Logger) (*webhook.Client, error) {
+	if cfg.WebhookURL == "" {
+		return nil, nil
+	}
+	c, err := webhook.New(cfg.WebhookURL)
+	if err != nil {
+		return nil, fmt.Errorf("webhook: %w", err)
+	}
+	if cfg.NotifySecret != "" {
+		c.SetSigningSecret(cfg.NotifySecret)
+		logger.Info("webhook signatures enabled")
+	}
+	logger.Info("webhook notifications enabled")
+	return c, nil
+}
+
 func run() error {
 	cfg, err := config.Parse(flag.CommandLine, os.Args[1:])
 	if err != nil {
@@ -54,14 +70,9 @@ func run() error {
 		logger.Info("storage: in-memory (data is lost on restart; set -data/CACHE22_DATA for persistence)")
 	}
 
-	var hook *webhook.Client
-	if cfg.WebhookURL != "" {
-		c, err := webhook.New(cfg.WebhookURL)
-		if err != nil {
-			return fmt.Errorf("webhook: %w", err)
-		}
-		hook = c
-		logger.Info("webhook notifications enabled")
+	hook, err := makeWebhook(cfg, logger)
+	if err != nil {
+		return err
 	}
 
 	tg := telegram.New(cfg.TelegramToken, cfg.TelegramChatID)

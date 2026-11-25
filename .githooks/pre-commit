@@ -1,0 +1,19 @@
+#!/bin/sh
+# Fast pre-commit checks. CI remains the objective judge.
+set -eu
+
+out=$(gofmt -l .)
+if [ -n "$out" ]; then
+  echo "not gofmt-clean:"
+  echo "$out"
+  exit 1
+fi
+
+go vet ./...
+go test ./...
+
+# Refuse obvious secret material in staged files.
+if git diff --cached --diff-filter=ACM --name-only | grep -Eq '(\.env|\.pem|\.key)$'; then
+  echo "secret-like file staged"
+  exit 1
+fi
