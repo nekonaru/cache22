@@ -61,6 +61,10 @@ func run() error {
 			return fmt.Errorf("webhook: %w", err)
 		}
 		hook = c
+		if cfg.NotifySecret != "" {
+			hook.SetSigningSecret(cfg.NotifySecret)
+			logger.Info("webhook signatures enabled")
+		}
 		logger.Info("webhook notifications enabled")
 	}
 
