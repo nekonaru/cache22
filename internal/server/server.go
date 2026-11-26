@@ -10,6 +10,7 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -77,6 +78,9 @@ func New(cfg config.Config, st store.Store, logger *slog.Logger, now func() time
 	mux.HandleFunc("GET /d/{id}", s.recipientPage)
 	mux.HandleFunc("POST /api/drops", s.createDrop)
 	mux.HandleFunc("POST /api/drops/{id}/read", s.readDrop)
+	mux.HandleFunc("GET /api/drops/{id}/status", s.statusDrop)
+	mux.HandleFunc("POST /api/drops/{id}/revoke", s.revokeDrop)
+	mux.HandleFunc("POST /api/drops/{id}/extend", s.extendDrop)
 	mux.HandleFunc("GET /healthz", s.healthz)
 	s.handler = s.withMiddleware(mux)
 	return s
@@ -287,6 +291,32 @@ func randomID() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
+// newOwnerToken returns a raw 256-bit capability and its hash. Only the
+// hash reaches storage; the raw value is returned once to the creator.
+func newOwnerToken() (string, []byte, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", nil, err
+	}
+	h := sha256.Sum256(b)
+	return base64.RawURLEncoding.EncodeToString(b), h[:], nil
+}
+
+func ownerHashFromRequest(r *http.Request) ([]byte, bool) {
+	const prefix = "Bearer "
+	h := r.Header.Get("Authorization")
+	if !strings.HasPrefix(h, prefix) {
+		return nil, false
+	}
+	raw := strings.TrimSpace(strings.TrimPrefix(h, prefix))
+	b, err := base64.RawURLEncoding.DecodeString(raw)
+	if err != nil || len(b) != 32 {
+		return nil, false
+	}
+	sum := sha256.Sum256(b)
+	return sum[:], true
+}
+
 func validID(id string) bool {
 	if len(id) != 22 {
 		return false
@@ -368,6 +398,9 @@ type createResponse struct {
 	ID        string `json:"id"`
 	URL       string `json:"url"`
 	ExpiresAt string `json:"expires_at"`
+	// OwnerToken is a 256-bit capability for revoke, status and one TTL
+	// extension. It is returned only here and never stored in plaintext.
+	OwnerToken string `json:"owner_token"`
 }
 
 func (s *Server) createDrop(w http.ResponseWriter, r *http.Request) {
@@ -427,18 +460,27 @@ func (s *Server) createDrop(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Meta: optional, must be a small JSON object, stored opaquely.
-	var meta []byte
+	var metaObj map[string]any
 	if len(req.Meta) > 0 && !bytes.Equal(bytes.TrimSpace(req.Meta), []byte("null")) {
 		if len(req.Meta) > maxMetaBytes {
 			writeError(w, http.StatusBadRequest, "invalid_meta")
 			return
 		}
-		var probe map[string]any
-		if err := json.Unmarshal(req.Meta, &probe); err != nil {
+		if err := json.Unmarshal(req.Meta, &metaObj); err != nil {
 			writeError(w, http.StatusBadRequest, "invalid_meta")
 			return
 		}
-		meta = append([]byte(nil), req.Meta...)
+	}
+	if metaObj == nil {
+		metaObj = make(map[string]any)
+	}
+	// original_reads lets the owner status endpoint report successful
+	// recipients without exposing any plaintext or drop contents.
+	metaObj["original_reads"] = req.MaxReads
+	meta, err := json.Marshal(metaObj)
+	if err != nil || len(meta) > maxMetaBytes {
+		writeError(w, http.StatusBadRequest, "invalid_meta")
+		return
 	}
 
 	id, err := randomID()
@@ -447,7 +489,13 @@ func (s *Server) createDrop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := s.now()
+	ownerToken, ownerHash, err := newOwnerToken()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "internal_error")
+		return
+	}
 	d := store.NewDrop(id, req.Payload, req.Kind, meta, req.MaxReads, now, ttl, len(decoded))
+	d.OwnerHash = ownerHash
 	if err := s.store.Put(d); err != nil {
 		if errors.Is(err, store.ErrFull) {
 			writeError(w, http.StatusServiceUnavailable, "capacity_reached")
@@ -457,9 +505,10 @@ func (s *Server) createDrop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, createResponse{
-		ID:        id,
-		URL:       s.cfg.BaseURL + "/d/" + id,
-		ExpiresAt: now.Add(ttl).UTC().Format(time.RFC3339),
+		ID:         id,
+		URL:        s.cfg.BaseURL + "/d/" + id,
+		ExpiresAt:  now.Add(ttl).UTC().Format(time.RFC3339),
+		OwnerToken: ownerToken,
 	})
 }
 
@@ -467,6 +516,119 @@ type readResponse struct {
 	Payload string          `json:"payload"`
 	Kind    string          `json:"kind"`
 	Meta    json.RawMessage `json:"meta,omitempty"`
+}
+
+type statusResponse struct {
+	Status     string `json:"status"`
+	Kind       string `json:"kind"`
+	ReadsLeft  int    `json:"reads_left"`
+	ExpiresAt  string `json:"expires_at"`
+	CanExtend  bool   `json:"can_extend"`
+	Recipients int    `json:"recipients"` // number of successful reads so far
+}
+
+type extendRequest struct {
+	TTL string `json:"ttl"`
+}
+
+func (s *Server) statusDrop(w http.ResponseWriter, r *http.Request) {
+	if !s.limits.Allow(s.clientIP(r)) {
+		w.Header().Set("Retry-After", "60")
+		writeError(w, http.StatusTooManyRequests, "rate_limited")
+		return
+	}
+	id := r.PathValue("id")
+	hash, ok := ownerHashFromRequest(r)
+	if !ok || !validID(id) {
+		writeNotFound(w)
+		return
+	}
+	now := s.now()
+	d, ok := s.store.OwnerGet(id, hash, now)
+	if !ok {
+		writeNotFound(w)
+		return
+	}
+	recipients := 0 // derived from the original read count when available
+	if d.Meta != nil {
+		var m struct {
+			OriginalReads int `json:"original_reads"`
+		}
+		_ = json.Unmarshal(d.Meta, &m)
+		if m.OriginalReads > d.ReadsLeft {
+			recipients = m.OriginalReads - d.ReadsLeft
+		}
+	}
+	writeJSON(w, http.StatusOK, statusResponse{
+		Status: "live", Kind: d.Kind, ReadsLeft: d.ReadsLeft,
+		ExpiresAt: d.ExpiresAt.UTC().Format(time.RFC3339),
+		CanExtend: !d.Extended, Recipients: recipients,
+	})
+}
+
+func (s *Server) revokeDrop(w http.ResponseWriter, r *http.Request) {
+	if !s.limits.Allow(s.clientIP(r)) {
+		w.Header().Set("Retry-After", "60")
+		writeError(w, http.StatusTooManyRequests, "rate_limited")
+		return
+	}
+	id := r.PathValue("id")
+	hash, ok := ownerHashFromRequest(r)
+	if !ok || !validID(id) {
+		writeNotFound(w)
+		return
+	}
+	if !s.store.OwnerDelete(id, hash, s.now()) {
+		writeNotFound(w)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "revoked"})
+}
+
+func (s *Server) extendDrop(w http.ResponseWriter, r *http.Request) {
+	if !s.limits.Allow(s.clientIP(r)) {
+		w.Header().Set("Retry-After", "60")
+		writeError(w, http.StatusTooManyRequests, "rate_limited")
+		return
+	}
+	id := r.PathValue("id")
+	hash, ok := ownerHashFromRequest(r)
+	if !ok || !validID(id) {
+		writeNotFound(w)
+		return
+	}
+	now := s.now()
+	d, ok := s.store.OwnerGet(id, hash, now)
+	if !ok || d.Extended {
+		writeNotFound(w)
+		return
+	}
+	var req extendRequest
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if dec.Decode(&req) != nil {
+		writeNotFound(w)
+		return
+	}
+	ttl, ok := ttlDurations[req.TTL]
+	if !ok {
+		writeNotFound(w)
+		return
+	}
+	newExpiry := now.Add(ttl)
+	if newExpiry.Before(d.ExpiresAt) {
+		writeNotFound(w)
+		return
+	}
+	d.ExpiresAt = newExpiry
+	d.Extended = true
+	if !s.store.OwnerUpdate(d, hash, now) {
+		writeNotFound(w)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{
+		"status": "extended", "expires_at": newExpiry.UTC().Format(time.RFC3339),
+	})
 }
 
 func (s *Server) readDrop(w http.ResponseWriter, r *http.Request) {

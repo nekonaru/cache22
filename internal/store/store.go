@@ -3,6 +3,7 @@
 package store
 
 import (
+	"crypto/subtle"
 	"errors"
 	"sync"
 	"time"
@@ -28,6 +29,13 @@ type Drop struct {
 	ExpiresAt time.Time
 	CreatedAt time.Time
 
+	// OwnerHash is SHA-256 of a high-entropy control token. The raw token
+	// is returned only at create time and never stored or logged.
+	OwnerHash []byte
+
+	// Extended records that the owner already used the one-time TTL extension.
+	Extended bool
+
 	// size tracks decoded payload bytes for the memory budget.
 	size int
 }
@@ -40,6 +48,14 @@ type Store interface {
 	// deletes it when the counter reaches zero or the drop is expired.
 	// Returns ok=false when the drop is missing, expired, or exhausted.
 	Consume(id string, now time.Time) (Drop, bool)
+	// OwnerGet returns a drop only when id and ownerHash match. It does not
+	// consume the drop.
+	OwnerGet(id string, ownerHash []byte, now time.Time) (Drop, bool)
+	// OwnerDelete removes a drop only when id and ownerHash match.
+	OwnerDelete(id string, ownerHash []byte, now time.Time) bool
+	// OwnerUpdate replaces a drop only when id and ownerHash match and the
+	// drop is still live. It is used for the single TTL extension.
+	OwnerUpdate(d Drop, ownerHash []byte, now time.Time) bool
 	// Sweep permanently removes expired drops and reports how many.
 	Sweep(now time.Time) int
 }
@@ -122,6 +138,44 @@ func (m *Memory) Sweep(now time.Time) int {
 		}
 	}
 	return n
+}
+
+func ownerMatch(d *Drop, ownerHash []byte) bool {
+	return len(ownerHash) == 32 && subtle.ConstantTimeCompare(d.OwnerHash, ownerHash) == 1
+}
+
+func (m *Memory) OwnerGet(id string, ownerHash []byte, now time.Time) (Drop, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	d, ok := m.drops[id]
+	if !ok || !now.Before(d.ExpiresAt) || !ownerMatch(d, ownerHash) {
+		return Drop{}, false
+	}
+	out := *d
+	return out, true
+}
+
+func (m *Memory) OwnerDelete(id string, ownerHash []byte, now time.Time) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	d, ok := m.drops[id]
+	if !ok || !now.Before(d.ExpiresAt) || !ownerMatch(d, ownerHash) {
+		return false
+	}
+	m.remove(id)
+	return true
+}
+
+func (m *Memory) OwnerUpdate(d Drop, ownerHash []byte, now time.Time) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	cur, ok := m.drops[d.ID]
+	if !ok || !now.Before(cur.ExpiresAt) || !ownerMatch(cur, ownerHash) {
+		return false
+	}
+	cp := d
+	m.drops[d.ID] = &cp
+	return true
 }
 
 // Len reports the number of stored drops (used by tests and metrics).

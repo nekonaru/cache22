@@ -1,9 +1,9 @@
 package store
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
-	"os"
 	"time"
 
 	bolt "go.etcd.io/bbolt"
@@ -33,11 +33,6 @@ func NewBolt(path string, maxBytes int64) (*Bolt, error) {
 	db, err := bolt.Open(path, 0o600, &bolt.Options{Timeout: 5 * time.Second})
 	if err != nil {
 		return nil, fmt.Errorf("open bolt %s: %w", path, err)
-	}
-	if fi, err := os.Stat(path); err == nil {
-		// Best effort: on Windows this is a no-op, which is fine.
-		_ = os.Chmod(path, 0o600)
-		_ = fi
 	}
 	b := &Bolt{db: db, maxBytes: maxBytes, path: path}
 	if err := db.Update(func(tx *bolt.Tx) error {
@@ -75,7 +70,33 @@ type dropRecord struct {
 	ReadsLeft int    `json:"reads_left"`
 	ExpiresAt int64  `json:"expires_at"`
 	CreatedAt int64  `json:"created_at"`
+	OwnerHash []byte `json:"owner_hash,omitempty"`
+	Extended  bool   `json:"extended,omitempty"`
 	Size      int    `json:"size"`
+}
+
+func recOf(d Drop) dropRecord {
+	return dropRecord{
+		ID: d.ID, Payload: d.Payload, Kind: d.Kind, Meta: d.Meta,
+		ReadsLeft: d.ReadsLeft, ExpiresAt: d.ExpiresAt.UnixNano(),
+		CreatedAt: d.CreatedAt.UnixNano(), OwnerHash: d.OwnerHash,
+		Extended: d.Extended, Size: d.size,
+	}
+}
+
+func (r dropRecord) toDrop() Drop {
+	return Drop{
+		ID: r.ID, Payload: r.Payload, Kind: r.Kind,
+		Meta: append([]byte(nil), r.Meta...), ReadsLeft: r.ReadsLeft,
+		ExpiresAt: time.Unix(0, r.ExpiresAt).UTC(), CreatedAt: time.Unix(0, r.CreatedAt).UTC(),
+		OwnerHash: append([]byte(nil), r.OwnerHash...), Extended: r.Extended,
+		size: r.Size,
+	}
+}
+
+func boltOwnerMatch(rec dropRecord, ownerHash []byte, now time.Time) bool {
+	return len(ownerHash) == 32 && now.Before(time.Unix(0, rec.ExpiresAt)) &&
+		subtle.ConstantTimeCompare(rec.OwnerHash, ownerHash) == 1
 }
 
 func (b *Bolt) Put(d Drop) error {
@@ -84,12 +105,7 @@ func (b *Bolt) Put(d Drop) error {
 		if b.maxBytes > 0 && used+int64(d.size) > b.maxBytes {
 			return ErrFull
 		}
-		rec := dropRecord{
-			ID: d.ID, Payload: d.Payload, Kind: d.Kind, Meta: d.Meta,
-			ReadsLeft: d.ReadsLeft, ExpiresAt: d.ExpiresAt.UnixNano(),
-			CreatedAt: d.CreatedAt.UnixNano(), Size: d.size,
-		}
-		buf, err := json.Marshal(rec)
+		buf, err := json.Marshal(recOf(d))
 		if err != nil {
 			return err
 		}
@@ -126,17 +142,78 @@ func (b *Bolt) Consume(id string, now time.Time) (Drop, bool) {
 			_ = writeUsed(tx, readUsed(tx)-int64(rec.Size))
 			return nil
 		}
-		buf, err := json.Marshal(dropRecord{
-			ID: d.ID, Payload: d.Payload, Kind: d.Kind, Meta: d.Meta,
-			ReadsLeft: d.ReadsLeft, ExpiresAt: d.ExpiresAt.UnixNano(),
-			CreatedAt: d.CreatedAt.UnixNano(), Size: rec.Size,
-		})
+		buf, err := json.Marshal(recOf(d))
 		if err != nil {
 			return err
 		}
 		return bucket.Put([]byte(d.ID), buf)
 	})
 	return out, ok
+}
+
+func (b *Bolt) OwnerGet(id string, ownerHash []byte, now time.Time) (Drop, bool) {
+	var out Drop
+	var ok bool
+	_ = b.db.View(func(tx *bolt.Tx) error {
+		v := tx.Bucket(bucketDrops).Get([]byte(id))
+		if v == nil {
+			return nil
+		}
+		var rec dropRecord
+		if json.Unmarshal(v, &rec) != nil || !boltOwnerMatch(rec, ownerHash, now) {
+			return nil
+		}
+		out, ok = rec.toDrop(), true
+		return nil
+	})
+	return out, ok
+}
+
+func (b *Bolt) OwnerDelete(id string, ownerHash []byte, now time.Time) bool {
+	deleted := false
+	_ = b.db.Update(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(bucketDrops)
+		v := bucket.Get([]byte(id))
+		if v == nil {
+			return nil
+		}
+		var rec dropRecord
+		if json.Unmarshal(v, &rec) != nil || !boltOwnerMatch(rec, ownerHash, now) {
+			return nil
+		}
+		if err := bucket.Delete([]byte(id)); err != nil {
+			return err
+		}
+		_ = writeUsed(tx, readUsed(tx)-int64(rec.Size))
+		deleted = true
+		return nil
+	})
+	return deleted
+}
+
+func (b *Bolt) OwnerUpdate(d Drop, ownerHash []byte, now time.Time) bool {
+	updated := false
+	_ = b.db.Update(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(bucketDrops)
+		v := bucket.Get([]byte(d.ID))
+		if v == nil {
+			return nil
+		}
+		var rec dropRecord
+		if json.Unmarshal(v, &rec) != nil || !boltOwnerMatch(rec, ownerHash, now) {
+			return nil
+		}
+		buf, err := json.Marshal(recOf(d))
+		if err != nil {
+			return err
+		}
+		if err := bucket.Put([]byte(d.ID), buf); err != nil {
+			return err
+		}
+		updated = true
+		return nil
+	})
+	return updated
 }
 
 func (b *Bolt) Sweep(now time.Time) int {
@@ -148,7 +225,7 @@ func (b *Bolt) Sweep(now time.Time) int {
 		_ = bucket.ForEach(func(k, v []byte) error {
 			var rec dropRecord
 			if err := json.Unmarshal(v, &rec); err != nil {
-				return nil // skip undecodable record rather than abort the sweep
+				return nil
 			}
 			if !now.Before(time.Unix(0, rec.ExpiresAt)) {
 				expired = append(expired, append([]byte{}, k...))
@@ -187,17 +264,4 @@ func writeUsed(tx *bolt.Tx, n int64) error {
 		n = 0
 	}
 	return tx.Bucket(bucketMeta).Put(keyUsed, []byte(fmt.Sprintf("%d", n)))
-}
-
-func (r dropRecord) toDrop() Drop {
-	return Drop{
-		ID:        r.ID,
-		Payload:   r.Payload,
-		Kind:      r.Kind,
-		Meta:      append([]byte(nil), r.Meta...),
-		ReadsLeft: r.ReadsLeft,
-		ExpiresAt: time.Unix(0, r.ExpiresAt).UTC(),
-		CreatedAt: time.Unix(0, r.CreatedAt).UTC(),
-		size:      r.Size,
-	}
 }
