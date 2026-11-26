@@ -3,6 +3,7 @@
 package store
 
 import (
+	"crypto/subtle"
 	"errors"
 	"sync"
 	"time"
@@ -13,8 +14,9 @@ var ErrFull = errors.New("store: capacity reached")
 
 // KindText and KindFile are the only payload kinds accepted by the API.
 const (
-	KindText = "text"
-	KindFile = "file"
+	KindText  = "text"
+	KindFile  = "file"
+	KindFiles = "files"
 )
 
 // Drop is a single stored secret. Payload is stored exactly as the client
@@ -28,6 +30,13 @@ type Drop struct {
 	ExpiresAt time.Time
 	CreatedAt time.Time
 
+	// OwnerHash is SHA-256 of a high-entropy control token. The raw token
+	// is returned only at create time and never stored or logged.
+	OwnerHash []byte
+
+	// Extended records that the owner already used the one-time TTL extension.
+	Extended bool
+
 	// size tracks decoded payload bytes for the memory budget.
 	size int
 }
@@ -40,8 +49,18 @@ type Store interface {
 	// deletes it when the counter reaches zero or the drop is expired.
 	// Returns ok=false when the drop is missing, expired, or exhausted.
 	Consume(id string, now time.Time) (Drop, bool)
+	// OwnerGet returns a drop only when id and ownerHash match. It does not
+	// consume the drop.
+	OwnerGet(id string, ownerHash []byte, now time.Time) (Drop, bool)
+	// OwnerDelete removes a drop only when id and ownerHash match.
+	OwnerDelete(id string, ownerHash []byte, now time.Time) bool
+	// OwnerUpdate replaces a drop only when id and ownerHash match and the
+	// drop is still live. It is used for the single TTL extension.
+	OwnerUpdate(d Drop, ownerHash []byte, now time.Time) bool
 	// Sweep permanently removes expired drops and reports how many.
 	Sweep(now time.Time) int
+	// SweepIDs removes expired drops and returns their ids for notifications.
+	SweepIDs(now time.Time) []string
 }
 
 // Memory is an in-memory Store guarded by a single mutex.
@@ -122,6 +141,57 @@ func (m *Memory) Sweep(now time.Time) int {
 		}
 	}
 	return n
+}
+
+func ownerMatch(d *Drop, ownerHash []byte) bool {
+	return len(ownerHash) == 32 && subtle.ConstantTimeCompare(d.OwnerHash, ownerHash) == 1
+}
+
+func (m *Memory) SweepIDs(now time.Time) []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var ids []string
+	for id, d := range m.drops {
+		if !now.Before(d.ExpiresAt) {
+			ids = append(ids, id)
+			m.remove(id)
+		}
+	}
+	return ids
+}
+
+func (m *Memory) OwnerGet(id string, ownerHash []byte, now time.Time) (Drop, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	d, ok := m.drops[id]
+	if !ok || !now.Before(d.ExpiresAt) || !ownerMatch(d, ownerHash) {
+		return Drop{}, false
+	}
+	out := *d
+	return out, true
+}
+
+func (m *Memory) OwnerDelete(id string, ownerHash []byte, now time.Time) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	d, ok := m.drops[id]
+	if !ok || !now.Before(d.ExpiresAt) || !ownerMatch(d, ownerHash) {
+		return false
+	}
+	m.remove(id)
+	return true
+}
+
+func (m *Memory) OwnerUpdate(d Drop, ownerHash []byte, now time.Time) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	cur, ok := m.drops[d.ID]
+	if !ok || !now.Before(cur.ExpiresAt) || !ownerMatch(cur, ownerHash) || cur.Extended || cur.ReadsLeft != d.ReadsLeft {
+		return false
+	}
+	cp := d
+	m.drops[d.ID] = &cp
+	return true
 }
 
 // Len reports the number of stored drops (used by tests and metrics).

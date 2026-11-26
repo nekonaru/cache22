@@ -192,7 +192,7 @@ footer.site a{color:var(--slate)}
       <div class="hint or-sep"><span data-i18n="or">atau</span></div>
 
       <label class="dropzone" for="fileInput">
-        <input type="file" id="fileInput">
+        <input type="file" id="fileInput" multiple>
         <span data-i18n="attach_file">Lampirkan file kecil (maks 2 MB)</span>
       </label>
       <div class="filchip" id="fileChip">
@@ -204,12 +204,7 @@ footer.site a{color:var(--slate)}
       <div class="row mt-14">
         <div>
           <label for="ttlSel" data-i18n="ttl_label">Kedaluwarsa</label>
-          <select id="ttlSel">
-            <option value="10m" data-i18n="ttl_10m">10 menit</option>
-            <option value="1h" selected data-i18n="ttl_1h">1 jam</option>
-            <option value="24h" data-i18n="ttl_24h">24 jam</option>
-            <option value="7d" data-i18n="ttl_7d">7 hari</option>
-          </select>
+          <select id="ttlSel">__TTL_OPTIONS__</select>
         </div>
         <div>
           <label for="readsSel" data-i18n="reads_label">Maks. dibuka</label>
@@ -233,22 +228,39 @@ footer.site a{color:var(--slate)}
       </div>
       <div id="passWrap">
         <input type="password" id="passphrase" autocomplete="new-password" data-i18n-ph="pass_ph" placeholder="Passphrase (bagikan lewat kanal terpisah)">
-        <p class="hint" data-i18n="pass_hint">PBKDF2-SHA-256 · 600.000 iterasi · kunci dibungkus di browser; server tidak pernah melihatnya.</p>
+        <input type="password" id="passphraseConfirm" autocomplete="new-password" data-i18n-ph="pass_confirm_ph" placeholder="Confirm passphrase" style="margin-top:8px">
+        <p class="hint" id="passStrength" aria-live="polite"></p>
+        <label for="iterSel" data-i18n="iter_label">PBKDF2 iterations</label>
+        <select id="iterSel">
+          <option value="600000" selected>600,000</option>
+          <option value="1000000">1,000,000</option>
+        </select>
+        <p class="hint" data-i18n="pass_hint">PBKDF2-SHA-256 · iterations are set here · the server never sees the key.</p>
       </div>
 
       <button class="btn" id="createBtn" disabled data-i18n="create_btn">Buat link</button>
 
       <div class="result" id="resultBox" role="status">
         <div class="result-title" data-i18n="result_title">Link rahasia kamu</div>
-        <div class="linkrow">
+        <div class="linkrow" id="linkRow">
           <input type="text" id="resultLink" readonly aria-label="Secret link">
           <button class="iconbtn" id="copyBtn" data-i18n="copy">Salin</button>
+          <button class="iconbtn" id="qrBtn" aria-label="Show QR code">QR</button>
+          <button class="iconbtn" id="shareBtn" data-i18n="share">Share</button>
         </div>
         <div class="warn">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 3 1.8 20.2h20.4L12 3Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 10v4.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="17.4" r="1.15" fill="currentColor"/></svg>
           <span id="resultWarn" data-i18n="result_warn">Simpan link ini sekarang  -  kamu tidak akan bisa melihatnya lagi. Fragmen (#…) tidak pernah dikirim ke server.</span>
         </div>
+        <button class="btn ghost" id="undoBtn" data-i18n="undo">Urungkan</button>
         <button class="btn ghost" id="againBtn" data-i18n="create_another">Buat rahasia lain</button>
+      </div>
+      <div id="qrBox" style="display:none"></div>
+      <div id="ownerBox" style="display:none;margin-top:12px;border-top:1px solid var(--line);padding-top:10px">
+        <button class="btn ghost" id="statusBtn" data-i18n="status_btn">Status</button>
+        <button class="btn ghost" id="revokeBtn" data-i18n="revoke_btn">Revoke</button>
+        <button class="btn ghost" id="extendBtn" data-i18n="extend_btn">Extend 24h</button>
+        <p class="hint" id="ownerOut" aria-live="polite"></p>
       </div>
       <p class="hint form-error" id="createError" role="alert"></p>
     </section>
@@ -323,7 +335,7 @@ const I18N = {
     create_btn:'Buat link', result_title:'Link rahasia kamu', copy:'Salin', copied:'Tersalin!',
     result_warn:'Simpan link ini sekarang  -  kamu tidak akan bisa melihatnya lagi. Fragmen (#…) tidak pernah dikirim ke server.',
     result_warn_pass:'Passphrase tidak ada di link  -  bagikan lewat kanal terpisah. Siapa pun yang punya link tanpa passphrase tidak bisa membaca isinya.',
-    create_another:'Buat rahasia lain',
+    create_another:'Buat rahasia lain', status_btn:'Cek status', revoke_btn:'Batalkan rahasia', extend_btn:'Perpanjang 24 jam', pass_confirm_ph:'Konfirmasi passphrase', iter_label:'Iterasi PBKDF2', share:'Bagikan', qr_shown:'Kode QR ditampilkan', undo:'Urungkan', revealed:'Rahasia ditampilkan', pass_mismatch:'Passphrase tidak cocok', weak_pass:'Passphrase lemah', good_pass:'Passphrase kuat', expired_in:'Kedaluwarsa dalam',
     reveal_title:'Rahasia menunggumu', reveal_body:'Rahasia ini hanya bisa dibuka sekali. Setelah ditampilkan, isinya dihapus permanen dari server.',
     reveal_btn:'Tampilkan rahasia', pass_reveal_ph:'Passphrase', download_btn:'Unduh file', copy_secret:'Salin ke clipboard',
     err_title:'Tidak ada rahasia di sini', err_body:'Rahasia ini sudah dibaca, kedaluwarsa, atau tidak pernah ada.',
@@ -331,6 +343,15 @@ const I18N = {
     file_too_big:'File melebihi 2 MB.', secret_too_big:'Rahasia melebihi batas 64 KB.',
     create_fail:'Gagal membuat rahasia. Coba lagi.', rate_limited:'Terlalu banyak permintaan. Tunggu sebentar.',
     decrypt_fail:'Gagal mendekripsi. Link atau passphrase salah.',
+  },
+  es:{
+    tagline:'Envia una vez. Desaparece al leerse.', secret_label:'Secreto', secret_ph:'Pega una contrasena, token o nota…', or:'o', attach_file:'Adjuntar archivos pequenos (max 2 MB)', ttl_label:'Caducidad', reads_label:'Max. lecturas', ttl_10m:'10 minutos', ttl_1h:'1 hora', ttl_24h:'24 horas', ttl_7d:'7 dias', pass_toggle:'Proteger con passphrase', pass_ph:'Passphrase (comparte por otro canal)', pass_confirm_ph:'Confirmar passphrase', iter_label:'Iteraciones PBKDF2', pass_hint:'PBKDF2-SHA-256 · el servidor nunca ve la clave', create_btn:'Crear enlace', result_title:'Tu enlace secreto', copy:'Copiar', copied:'Copiado!', result_warn:'Guarda este enlace ahora. No podras verlo de nuevo.', result_warn_pass:'La passphrase no esta en el enlace. Compártela por otro canal.', create_another:'Crear otro secreto', reveal_title:'Un secreto te espera', reveal_body:'Solo se puede abrir una vez.', reveal_btn:'Mostrar secreto', pass_reveal_ph:'Passphrase', download_btn:'Descargar archivo', copy_secret:'Copiar al portapapeles', err_title:'No hay secreto aqui', err_body:'Ya fue leido, expiro o nunca existio.', zero_knowledge:'zero-knowledge, una sola lectura', link_copied:'Enlace copiado!', file_too_big:'Archivo demasiado grande.', secret_too_big:'Secreto demasiado grande.', create_fail:'No se pudo crear.', rate_limited:'Demasiadas solicitudes.', decrypt_fail:'Falló el descifrado.', share:'Compartir', qr_shown:'Codigo QR mostrado', undo:'Deshacer', revealed:'Secreto mostrado', pass_mismatch:'Las passphrases no coinciden', weak_pass:'Passphrase debil', good_pass:'Passphrase fuerte', expired_in:'Caduca en',
+  },
+  fr:{
+    tagline:'Envoyez une fois. Disparait apres lecture.', secret_label:'Secret', secret_ph:'Collez un mot de passe, un jeton ou une note…', or:'ou', attach_file:'Joindre de petits fichiers (max 2 Mo)', ttl_label:'Expiration', reads_label:'Lectures max', ttl_10m:'10 minutes', ttl_1h:'1 heure', ttl_24h:'24 heures', ttl_7d:'7 jours', pass_toggle:'Proteger par passphrase', pass_ph:'Passphrase (a partager autrement)', pass_confirm_ph:'Confirmer la passphrase', iter_label:'Iterations PBKDF2', pass_hint:'PBKDF2-SHA-256 · le serveur ne voit jamais la cle', create_btn:'Creer le lien', result_title:'Votre lien secret', copy:'Copier', copied:'Copie!', result_warn:'Enregistrez ce lien maintenant. Vous ne le reverrez pas.', result_warn_pass:'La passphrase nest pas dans le lien. Partagez-la autrement.', create_another:'Creer un autre secret', reveal_title:'Un secret vous attend', reveal_body:'Une seule lecture possible.', reveal_btn:'Afficher le secret', pass_reveal_ph:'Passphrase', download_btn:'Telecharger le fichier', copy_secret:'Copier', err_title:'Aucun secret ici', err_body:'Deja lu, expire ou inexistant.', zero_knowledge:'zero-knowledge, lecture unique', link_copied:'Lien copie!', file_too_big:'Fichier trop volumineux.', secret_too_big:'Secret trop volumineux.', create_fail:'Echec de creation.', rate_limited:'Trop de requetes.', decrypt_fail:'Echec du dechiffrement.', share:'Partager', qr_shown:'QR code affiche', undo:'Annuler', revealed:'Secret affiche', pass_mismatch:'Passphrases differentes', weak_pass:'Passphrase faible', good_pass:'Passphrase forte', expired_in:'Expire dans',
+  },
+  ja:{
+    tagline:'一度だけ送信。読まれたら消えます。', secret_label:'秘密', secret_ph:'パスワードやトークンを貼り付け…', or:'または', attach_file:'小さなファイルを添付 (最大2MB)', ttl_label:'有効期限', reads_label:'最大閲覧回数', ttl_10m:'10分', ttl_1h:'1時間', ttl_24h:'24時間', ttl_7d:'7日', pass_toggle:'パスフレーズで保護', pass_ph:'パスフレーズ (別経路で共有)', pass_confirm_ph:'パスフレーズ確認', iter_label:'PBKDF2 反復回数', pass_hint:'PBKDF2-SHA-256 · サーバーは鍵を見ません', create_btn:'リンクを作成', result_title:'秘密のリンク', copy:'コピー', copied:'コピーしました', result_warn:'今すぐリンクを保存してください。再表示できません。', result_warn_pass:'パスフレーズはリンクに含まれません。別経路で共有してください。', create_another:'別の秘密を作成', reveal_title:'秘密が待っています', reveal_body:'一度だけ閲覧できます。', reveal_btn:'秘密を表示', pass_reveal_ph:'パスフレーズ', download_btn:'ファイルを保存', copy_secret:'コピー', err_title:'秘密がありません', err_body:'既読、期限切れ、または存在しません。', zero_knowledge:'zero-knowledge, 一度だけ', link_copied:'リンクをコピーしました', file_too_big:'ファイルが大きすぎます。', secret_too_big:'秘密が大きすぎます。', create_fail:'作成できませんでした。', rate_limited:'リクエストが多すぎます。', decrypt_fail:'復号に失敗しました。', share:'共有', qr_shown:'QRコードを表示', undo:'取り消す', revealed:'秘密を表示しました', pass_mismatch:'パスフレーズが一致しません', weak_pass:'弱いパスフレーズ', good_pass:'強いパスフレーズ', expired_in:'有効期限',
   },
   en:{
     tagline:'Send once. Gone after reading.',
@@ -342,7 +363,7 @@ const I18N = {
     create_btn:'Create link', result_title:'Your secret link', copy:'Copy', copied:'Copied!',
     result_warn:'Save this link now  -  you will not see it again. The fragment (#…) is never sent to the server.',
     result_warn_pass:'The passphrase is not in the link  -  share it via a separate channel. The link alone reveals nothing.',
-    create_another:'Create another secret',
+    create_another:'Create another secret', status_btn:'Check status', revoke_btn:'Revoke secret', extend_btn:'Extend 24h', pass_confirm_ph:'Confirm passphrase', iter_label:'PBKDF2 iterations', share:'Share', qr_shown:'QR code shown', undo:'Undo', revealed:'Secret revealed', pass_mismatch:'Passphrases do not match', weak_pass:'Weak passphrase', good_pass:'Strong passphrase', expired_in:'Expires in',
     reveal_title:'A secret awaits you', reveal_body:'This secret can be opened only once. Once shown, it is permanently deleted from the server.',
     reveal_btn:'Reveal secret', pass_reveal_ph:'Passphrase', download_btn:'Download file', copy_secret:'Copy to clipboard',
     err_title:'No secret here', err_body:'This secret was already read, expired, or never existed.',
@@ -352,7 +373,8 @@ const I18N = {
     decrypt_fail:'Decryption failed. Wrong link or passphrase.',
   }
 };
-const lang = (navigator.language||'en').toLowerCase().startsWith('id')||(navigator.language||'').toLowerCase().startsWith('in') ? 'id':'en';
+const navLang=(navigator.language||'en').toLowerCase();
+const lang = ['id','in','es','fr','ja'].find(p=>navLang.startsWith(p)) || 'en';
 const T = I18N[lang];
 document.documentElement.lang = lang;
 
@@ -408,15 +430,15 @@ async function decryptEnvelope(payloadB64u, rawKey){
   const plain = await crypto.subtle.decrypt({name:'AES-GCM', iv}, key, ct);
   return JSON.parse(utf8dec.decode(plain));
 }
-async function wrapKey(rawDataKey, passphrase){
+async function wrapKey(rawDataKey, passphrase, iterations){
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
   const baseKey = await crypto.subtle.importKey('raw', utf8.encode(passphrase), 'PBKDF2', false, ['deriveKey']);
   const kek = await crypto.subtle.deriveKey(
-    {name:'PBKDF2', salt, iterations:PBKDF2_ITERATIONS, hash:'SHA-256'},
+    {name:'PBKDF2', salt, iterations:iterations||PBKDF2_ITERATIONS, hash:'SHA-256'},
     baseKey, {name:'AES-GCM', length:256}, false, ['encrypt']);
   const wrapped = new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM', iv}, kek, rawDataKey));
-  return { salt:b64uEncode(salt), iterations:PBKDF2_ITERATIONS, iv:b64uEncode(iv), wrapped:b64uEncode(wrapped) };
+  return { salt:b64uEncode(salt), iterations:iterations||PBKDF2_ITERATIONS, iv:b64uEncode(iv), wrapped:b64uEncode(wrapped) };
 }
 async function unwrapKey(wrap, passphrase){
   const salt=b64uDecode(wrap.salt), iv=b64uDecode(wrap.iv), wrapped=b64uDecode(wrap.wrapped);
@@ -444,84 +466,127 @@ const secretText=$('secretText'), fileInput=$('fileInput'), fileChip=$('fileChip
 const charCount=$('charCount'), createBtn=$('createBtn'), createError=$('createError');
 const resultBox=$('resultBox'), resultLink=$('resultLink'), resultWarn=$('resultWarn');
 const passToggle=$('passToggle'), passWrap=$('passWrap'), passphrase=$('passphrase');
+const passConfirm=$('passphraseConfirm'), passStrength=$('passStrength'), iterSel=$('iterSel');
 const MAX_TEXT=65536, MAX_FILE=2*1024*1024;
-let chosenFile=null, busy=false;
+let chosenFiles=[], busy=false, currentLink='';
+const ownerBox=$('ownerBox'), ownerOut=$('ownerOut');
 
+function totalFileBytes(){ return chosenFiles.reduce((n,f)=>n+f.size,0); }
 function refreshCreateState(){
   const textBytes = utf8.encode(secretText.value).length;
   charCount.textContent = String([...secretText.value].length);
-  const hasText = secretText.value.length>0, hasFile = !!chosenFile;
-  const tooBigText = textBytes>MAX_TEXT, tooBigFile = chosenFile && chosenFile.size>MAX_FILE;
+  const hasText = secretText.value.length>0, hasFile = chosenFiles.length>0;
+  const tooBigText = textBytes>MAX_TEXT, tooBigFile = totalFileBytes()>MAX_FILE;
   charCount.style.color = tooBigText ? 'var(--danger)' : '';
   createBtn.disabled = busy || ((!hasText && !hasFile) || tooBigText || tooBigFile);
   if(tooBigFile){ createError.textContent=T.file_too_big; createError.style.display='block'; }
   else if(tooBigText){ createError.textContent=T.secret_too_big; createError.style.display='block'; }
   else { createError.style.display='none'; createError.textContent=''; }
+  updateStrength();
 }
-
-secretText.addEventListener('input', ()=>{ if(secretText.value.length>0 && chosenFile){ clearFile(); } refreshCreateState(); });
+function updateStrength(){
+  if(!passToggle.checked){passStrength.textContent='';return;}
+  const v=passphrase.value; let score=0;
+  if(v.length>=12)score++; if(/[A-Z]/.test(v)&&/[a-z]/.test(v))score++; if(/[0-9]/.test(v))score++; if(/[^A-Za-z0-9]/.test(v))score++;
+  passStrength.textContent = score>=3 ? T.good_pass : T.weak_pass;
+  passStrength.style.color = score>=3 ? 'var(--ok)' : 'var(--danger)';
+}
+function clearFiles(){ chosenFiles=[]; fileInput.value=''; fileChip.style.display='none'; refreshCreateState(); }
+secretText.addEventListener('input', ()=>{ if(secretText.value.length>0 && chosenFiles.length){ clearFiles(); } refreshCreateState(); });
 fileInput.addEventListener('change', ()=>{
-  const f = fileInput.files && fileInput.files[0];
-  if(!f) return;
-  if(f.size>MAX_FILE){ fileInput.value=''; createError.textContent=T.file_too_big; createError.style.display='block'; return; }
-  chosenFile=f; secretText.value=''; fileChipName.textContent=f.name+' · '+Math.ceil(f.size/1024)+' KB';
+  const list=[...(fileInput.files||[])]; if(!list.length)return;
+  if(list.reduce((n,f)=>n+f.size,0)>MAX_FILE){ fileInput.value=''; createError.textContent=T.file_too_big; createError.style.display='block'; return; }
+  chosenFiles=list; secretText.value=''; fileChipName.textContent=list.map(f=>f.name).join(', ')+' · '+Math.ceil(totalFileBytes()/1024)+' KB';
   fileChip.style.display='flex'; refreshCreateState();
 });
-function clearFile(){ chosenFile=null; fileInput.value=''; fileChip.style.display='none'; refreshCreateState(); }
-$('fileChipClear').addEventListener('click', clearFile);
-
-passToggle.addEventListener('change', ()=>{ passWrap.style.display = passToggle.checked?'block':'none'; if(passToggle.checked) passphrase.focus(); });
-
+$('fileChipClear').addEventListener('click', clearFiles);
+passToggle.addEventListener('change', ()=>{ passWrap.style.display = passToggle.checked?'block':'none'; if(passToggle.checked) passphrase.focus(); refreshCreateState(); });
+passphrase.addEventListener('input', updateStrength);
 $('againBtn').addEventListener('click', ()=>{
-  resultBox.style.display='none'; secretText.value=''; clearFile(); passphrase.value=''; passToggle.checked=false; passWrap.style.display='none'; refreshCreateState(); secretText.focus();
+  resultBox.style.display='none'; qrBox.style.display='none'; secretText.value=''; clearFiles(); passphrase.value=''; passConfirm.value=''; passToggle.checked=false; passWrap.style.display='none'; refreshCreateState(); secretText.focus();
 });
-
-$('createBtn').addEventListener('click', async ()=>{
-  if(busy) return; busy=true; refreshCreateState();
-  createError.style.display='none';
+/* Minimal QR encoder: byte mode, ECC level L, versions 1-6, mask 0.
+   Implements GF(256), Reed-Solomon, function patterns and format info. */
+function makeQR(text){
+  const bytes=utf8.encode(text);
+  const caps=[19,34,55,80,108,136];
+  let ver=caps.findIndex(c=>bytes.length+3<=c);
+  if(ver<0){ const svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('viewBox','0 0 100 100'); return svg; }
+  ver++; const size=17+4*ver;
+  const dataCap=caps[ver-1];
+  const eccLen=[7,10,15,20,26,18][ver-1];
+  const eccTotal=eccLen*([1,1,1,1,1,2][ver-1]);
+  const blocks=[1,1,1,1,1,2][ver-1];
+  const per=Math.floor(dataCap/blocks), extra=dataCap-per*blocks;
+  const bits=[]; const push=(v,n)=>{for(let i=n-1;i>=0;i--)bits.push((v>>i)&1)};
+  push(4,4); push(bytes.length, ver<10?8:16); for(const b of bytes)push(b,8);
+  for(let i=0;i<4&&bits.length<dataCap*8;i++)bits.push(0);
+  while(bits.length%8)bits.push(0);
+  const data=[]; for(let i=0;i<bits.length;i+=8){let v=0;for(let j=0;j<8;j++)v=(v<<1)|bits[i+j];data.push(v)};
+  while(data.length<dataCap)data.push((data.length%2===0)?0xEC:0x11);
+  function gfMul(a,b){let x=0;while(b){if(b&1)x^=a;const hi=a&0x80;a=(a<<1)&255;if(hi)a^=0x1d;b>>=1}return x}
+  function polyMul(p,q){const r=new Array(p.length+q.length-1).fill(0);for(let i=0;i<p.length;i++)for(let j=0;j<q.length;j++)r[i+j]^=gfMul(p[i],q[j]);return r}
+  let gen=[1]; for(let i=0;i<eccLen;i++)gen=polyMul(gen,[1,(function exp(i){let x=1;for(let k=0;k<i;k++)x=gfMul(x,2);return x})(i)]);
+  const blocksData=[],blocksEcc=[]; let pos=0;
+  for(let b=0;b<blocks;b++){const len=per+(b<extra?1:0);const part=data.slice(pos,pos+len);pos+=len;blocksData.push(part);const rem=new Array(gen.length).fill(0);for(const byte of part){const factor=byte^rem[0];rem.shift();rem.push(0);for(let i=0;i<eccLen;i++)rem[i]^=gfMul(gen[i+1],factor)}blocksEcc.push(rem)}
+  const code=[];const maxData=Math.max(...blocksData.map(x=>x.length));
+  for(let i=0;i<maxData;i++)for(let b=0;b<blocks;b++)if(i<blocksData[b].length)code.push(blocksData[b][i]);
+  for(let i=0;i<eccLen;i++)for(let b=0;b<blocks;b++)code.push(blocksEcc[b][i]);
+  const m=Array.from({length:size},()=>new Array(size).fill(null));
+  const fn=Array.from({length:size},()=>new Array(size).fill(false));
+  const set=(x,y,v)=>{m[y][x]=v;fn[y][x]=true};
+  function finder(ox,oy){for(let y=-1;y<=7;y++)for(let x=-1;x<=7;x++){const px=ox+x,py=oy+y;if(px<0||px>=size||py<0||py>=size)continue;const inBox=x>=0&&x<7&&y>=0&&y<7;const dark=inBox&&(x===0||x===6||y===0||y===6||(x>=2&&x<=4&&y>=2&&y<=4));set(px,py,dark?1:0)}}
+  finder(0,0);finder(size-7,0);finder(0,size-7);
+  for(let i=0;i<size;i++){if(!fn[6][i])set(i,6,i%2===0?1:0);if(!fn[i][6])set(6,i,i%2===0?1:0)}
+  if(ver>=2){const c=size-7;for(let y=-2;y<=2;y++)for(let x=-2;x<=2;x++)set(c+x,c+y,(Math.max(Math.abs(x),Math.abs(y))!==1)?1:0)}
+  set(8,size-8,1);
+  let fmt=0b01000;let rem=fmt;for(let i=0;i<10;i++)rem=(rem<<1)^((rem>>9)*0x537);fmt=(fmt<<10|rem)^0x5412;
+  for(let i=0;i<15;i++){const bit=(fmt>>i)&1;if(i<6){set(8,i,bit);set(i,8,bit)}else if(i<8){set(8,i+1,bit);set(i+1,8,bit)}else{set(8,size-15+i,bit);set(size-15+i,8,bit)}}
+  let bi=0;for(let x=size-1;x>0;x-=2){if(x===6)x--;for(let i=0;i<size;i++){const y=(x+1&2)?size-1-i:i;for(let k=0;k<2;k++){const px=x-k;if(fn[y][px])continue;let bit=0;if(bi<code.length*8){bit=(code[bi>>3]>>(7-(bi&7)))&1;bi++}if((y+px)%2===0)bit^=1;m[y][px]=bit}}}
+  const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('viewBox','0 0 '+size+' '+size);svg.setAttribute('width','180');svg.setAttribute('height','180');
+  const bg=document.createElementNS('http://www.w3.org/2000/svg','rect');bg.setAttribute('width',size);bg.setAttribute('height',size);bg.setAttribute('fill','#fff');svg.appendChild(bg);
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++)if(m[y][x]){const r=document.createElementNS('http://www.w3.org/2000/svg','rect');r.setAttribute('x',x);r.setAttribute('y',y);r.setAttribute('width',1);r.setAttribute('height',1);r.setAttribute('fill','#0E1014');svg.appendChild(r)}
+  return svg;
+}
+const qrBox=$('qrBox');
+$('qrBtn').addEventListener('click', ()=>{ if(!currentLink)return; qrBox.innerHTML=''; qrBox.appendChild(makeQR(currentLink)); qrBox.style.display='block'; toast(T.qr_shown); });
+$('shareBtn').addEventListener('click', async ()=>{ if(!currentLink)return; if(navigator.share){try{await navigator.share({title:'Cache22',url:currentLink});}catch(_){}} else {await copyText(currentLink,T.link_copied);} });
+createBtn.addEventListener('click', async ()=>{
+  if(busy) return; busy=true; refreshCreateState(); createError.style.display='none';
   try{
     const ttl=$('ttlSel').value, maxReads=parseInt($('readsSel').value,10);
     const usePass = passToggle.checked && passphrase.value.length>0;
-
-    /* Build the encrypted envelope (plaintext never leaves the browser). */
-    let envelope;
-    if(chosenFile){
-      envelope = { v:1, kind:'file', name:chosenFile.name, data:b64uEncode(new Uint8Array(await chosenFile.arrayBuffer())) };
+    if(passToggle.checked && passphrase.value!==passConfirm.value){ createError.textContent=T.pass_mismatch; createError.style.display='block'; busy=false; refreshCreateState(); return; }
+    let payload, kind='text', envelope;
+    if(chosenFiles.length>1){
+      envelope={v:2,kind:'files',files:[]};
+      for(const f of chosenFiles){ envelope.files.push({name:f.name,data:b64uEncode(new Uint8Array(await f.arrayBuffer()))}); }
+      kind='files';
+    }else if(chosenFiles.length===1){
+      envelope={v:1,kind:'file',name:chosenFiles[0].name,data:b64uEncode(new Uint8Array(await chosenFiles[0].arrayBuffer()))}; kind='file';
     }else{
-      envelope = { v:1, kind:'text', data:b64uEncode(utf8.encode(secretText.value)) };
+      envelope={v:1,kind:'text',data:b64uEncode(utf8.encode(secretText.value))};
     }
     const rawKey = await generateRawKey();
-    const payload = await encryptEnvelope(envelope, rawKey);
-
+    payload = await encryptEnvelope(envelope, rawKey);
     const meta = { v:1 };
-    if(usePass){ meta.has_passphrase = true; meta.pbkdf2 = await wrapKey(rawKey, passphrase.value); }
-
-    const resp = await fetch('/api/drops', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ payload, ttl, max_reads:maxReads, kind: chosenFile?'file':'text', meta })
-    });
+    if(usePass){ meta.has_passphrase=true; meta.pbkdf2=await wrapKey(rawKey, passphrase.value, parseInt(iterSel.value,10)); }
+    const resp = await fetch('/api/drops', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({payload,ttl,max_reads:maxReads,kind,meta}) });
     if(resp.status===429){ throw new Error('rate_limited'); }
     if(!resp.ok){ throw new Error('create_failed'); }
     const data = await resp.json();
-
-    /* Fragment carries the raw key only when no passphrase protects it. */
-    const link = usePass ? data.url : data.url + '#' + b64uEncode(rawKey);
-    resultLink.value = link;
+    currentLink = usePass ? data.url : data.url + '#' + b64uEncode(rawKey);
+    if(data.owner_token){ ownerBox.style.display='block'; }
+    if(usePass){ window.__cache22OwnerToken=data.owner_token||''; }
+    window.__cache22OwnerToken = data.owner_token||'';
+    resultLink.value = currentLink;
     resultWarn.textContent = usePass ? T.result_warn_pass : T.result_warn;
-    resultBox.style.display='block';
-    resultLink.focus(); resultLink.select();
-  }catch(err){
-    createError.textContent = (err && err.message==='rate_limited') ? T.rate_limited : T.create_fail;
-    createError.style.display='block';
-  }finally{ busy=false; refreshCreateState(); }
+    resultBox.style.display='block'; qrBox.style.display='none'; resultLink.focus(); resultLink.select();
+  }catch(err){ createError.textContent=(err&&err.message==='rate_limited')?T.rate_limited:T.create_fail; createError.style.display='block'; }
+  finally{ busy=false; refreshCreateState(); }
 });
 
-$('copyBtn').addEventListener('click', ()=>copyText(resultLink.value, T.link_copied));
-
 /* ============ READ FLOW ============ */
-/* The fragment is captured on load, then immediately stripped from history
-   so the key never lingers in the URL bar, logs, or screenshots. */
 let fragmentKey = null;
 (function captureAndStripFragment(){
   if(location.hash.length>1){
@@ -534,76 +599,91 @@ const revealBtn=$('revealBtn'), revealPane=$('revealPane'), passPromptWrap=$('pa
 const secretOut=$('secretOut'), doneRow=$('doneRow'), copySecretBtn=$('copySecretBtn');
 const fileOut=$('fileOut'), fileOutName=$('fileOutName'), downloadBtn=$('downloadBtn');
 const errorBox=$('errorBox');
-
 const dropId = (location.pathname.match(/^\/d\/([A-Za-z0-9\-_]{1,64})\/?$/)||[])[1]||'';
-let revealedText=null, revealedFile=null, revealedFileName='file', revealBusy=false;
-/* Stash the consumed payload across clicks: burn-on-read means the drop is
-   gone after the first POST, so retrying passphrases must reuse the stashed
-   payload, never refetch (a refetch would 404 and orphan the secret). */
-let pendingData = null;
-
+let revealedFile=null, revealedText=null, revealedFiles=[], revealedFileName='file', revealBusy=false, pendingData=null, lastRevealedAt=0;
 function showError(){
   revealPane.style.display='none'; passPromptWrap.style.display='none';
   secretOut.style.display='none'; doneRow.style.display='none'; fileOut.style.display='none';
   errorBox.style.display='block';
 }
-
+function renderSecret(env){
+  if(env.v===1 && env.kind==='file'){
+    revealedFile=b64uDecode(env.data); revealedFileName=env.name||'download';
+    fileOutName.textContent=revealedFileName+' · '+Math.ceil(revealedFile.length/1024)+' KB';
+    revealPane.style.display='none'; fileOut.style.display='block'; doneRow.style.display='none';
+  }else if(env.v===2 && env.files && env.files.length){
+    revealedFiles=env.files.map(f=>({name:f.name,data:b64uDecode(f.data)}));
+    fileOutName.textContent=revealedFiles.map(f=>f.name).join(', ')+' · '+Math.ceil(revealedFiles.reduce((n,f)=>n+f.data.length,0)/1024)+' KB';
+    revealPane.style.display='none'; fileOut.style.display='block'; doneRow.style.display='none';
+  }else{
+    revealedText = utf8dec.decode(b64uDecode(env.data));
+    secretOut.textContent = revealedText;
+    revealPane.style.display='none'; secretOut.style.display='block'; doneRow.style.display='flex';
+  }
+  lastRevealedAt=Date.now();
+}
 revealBtn.addEventListener('click', async ()=>{
   if(revealBusy) return; revealBusy=true; revealBtn.disabled=true;
   try{
-    /* First click: consume the drop. Later clicks (passphrase) reuse the payload. */
     if(!pendingData){
       const resp = await fetch('/api/drops/'+encodeURIComponent(dropId)+'/read', { method:'POST' });
       if(resp.status===429){ toast(T.rate_limited); revealBtn.disabled=false; revealBusy=false; return; }
       if(resp.status!==200){ showError(); return; }
       pendingData = await resp.json();
     }
-    const data = pendingData;
-    const meta = data.meta || {};
-
-    /* Resolve the data key: fragment first, then passphrase-wrapped key. */
-    let rawKey = fragmentKey;
-    if(!rawKey && meta.has_passphrase){
+    const env=pendingData.payload;
+    if(!fragmentKey && pendingData.meta && pendingData.meta.has_passphrase){
       if(passPromptWrap.style.display!=='block'){
-        /* First tap reveals that a passphrase is needed. */
         passPromptWrap.style.display='block'; revealPassphrase.focus();
         revealBtn.disabled=false; revealBusy=false; revealBtn.textContent = lang==='id'?'Buka dengan passphrase':'Unlock with passphrase';
         return;
       }
-      try{ rawKey = await unwrapKey(meta.pbkdf2, revealPassphrase.value); }
+      try{ fragmentKey=await unwrapKey(pendingData.meta.pbkdf2, revealPassphrase.value, pendingData.meta.pbkdf2.iterations); }
       catch(_){ revealPassphrase.value=''; revealPassphrase.focus(); toast(T.decrypt_fail); revealBtn.disabled=false; revealBusy=false; return; }
     }
-    if(!rawKey){ showError(); return; }
-
-    const envelope = await decryptEnvelope(data.payload, rawKey);
-    if(envelope.kind==='file'){
-      revealedFile = b64uDecode(envelope.data); revealedFileName = envelope.name||'download';
-      fileOutName.textContent = revealedFileName+' · '+Math.ceil(revealedFile.length/1024)+' KB';
-      revealPane.style.display='none'; fileOut.style.display='block'; doneRow.style.display='none';
-    }else{
-      revealedText = utf8dec.decode(b64uDecode(envelope.data));
-      secretOut.textContent = revealedText; /* textContent only  -  never innerHTML */
-      revealPane.style.display='none'; secretOut.style.display='block'; doneRow.style.display='flex';
-    }
-    fragmentKey = null;
+    if(!fragmentKey){ showError(); return; }
+    const envelope = await decryptEnvelope(env, fragmentKey);
+    renderSecret(envelope); fragmentKey=null;
   }catch(err){
-    if(err && (err.name==='OperationError'||err.name==='SyntaxError')){ toast(T.decrypt_fail); revealBtn.disabled=false; revealBusy=false; return; }
+    if(err&&(err.name==='OperationError'||err.name==='SyntaxError')){ toast(T.decrypt_fail); revealBtn.disabled=false; revealBusy=false; return; }
     showError();
   }
 });
-
 copySecretBtn.addEventListener('click', ()=>{ if(revealedText!=null) copyText(revealedText, T.copied); });
 downloadBtn.addEventListener('click', ()=>{
-  if(!revealedFile) return;
-  const blob = new Blob([revealedFile]);
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href=url; a.download=revealedFileName; document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(()=>URL.revokeObjectURL(url), 5000);
+  if(revealedFiles.length){
+    revealedFiles.forEach(f=>{const blob=new Blob([f.data]);const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=f.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);});
+  }else if(revealedFile){
+    const blob = new Blob([revealedFile]);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href=url; a.download=revealedFileName; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 5000);
+  }
 });
+$('undoBtn').addEventListener('click', ()=>{
+  resultBox.style.display='none'; qrBox.style.display='none';
+  if(pendingData){ secretText.value=''; clearFiles(); }
+  else if(lastRevealedAt && Date.now()-lastRevealedAt<10000){
+    secretOut.textContent=JSON.stringify({kind:'already read',message:T.revealed},null,2);
+  }
+  toast(T.undo);
+});
+
+/* owner token actions are only available in the create tab */
+
+function ownerHeaders(){const token=window.__cache22OwnerToken||'';return token?{'Authorization':'Bearer '+token}:{};}
+function ownerAPI(method,path,body){const id=(currentLink.match(/\/d\/([A-Za-z0-9_-]{22})/)||[])[1];if(!id||!ownerHeaders().Authorization)return Promise.resolve(null);return fetch('/api/drops/'+id+path,{method,headers:Object.assign({'Content-Type':'application/json'},ownerHeaders()),body:body?JSON.stringify(body):undefined});}
+$('statusBtn').addEventListener('click',async()=>{const r=await ownerAPI('GET','/status');ownerBox.style.display='block';ownerOut.textContent=r?('HTTP '+r.status):'owner token unavailable';});
+$('revokeBtn').addEventListener('click',async()=>{const r=await ownerAPI('POST','/revoke');ownerOut.textContent=r?('HTTP '+r.status):'owner token unavailable';});
+$('extendBtn').addEventListener('click',async()=>{const r=await ownerAPI('POST','/extend',{ttl:'24h'});ownerOut.textContent=r?('HTTP '+r.status):'owner token unavailable';});
 
 /* ============ init ============ */
 applyI18n();
 refreshCreateState();
+document.addEventListener('keydown',(e)=>{ if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){ e.preventDefault(); createBtn.click(); } if(e.key==='Escape'&&resultBox.style.display==='block'){ $('undoBtn').click(); } });
+const ttlSelNow=$('ttlSel'); if(ttlSelNow){ ttlSelNow.addEventListener('change',()=>{ const s=ttlSelNow.options[ttlSelNow.selectedIndex]; if(s) ttlSelNow.setAttribute('data-expiry', s.value); }); }
+// countdown display uses expires_at if the server embeds it in data attributes later; kept local for now
+
 </script>
 </body>
 </html>

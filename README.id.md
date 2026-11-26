@@ -226,9 +226,13 @@ Free plan punya filesystem yang ephemeral, jadi servis berjalan dengan `-data -`
 
 | Metode dan path | Fungsi |
 |-----------------|--------|
-| `POST /api/drops` | Membuat drop. Body: `{payload, ttl, max_reads?, kind, meta?}`. Mengembalikan `201 {id, url, expires_at}` |
+| `POST /api/drops` | Membuat drop. Body: `{payload, ttl, max_reads?, kind, meta?}`. Mengembalikan `201 {id, url, expires_at, owner_token}` |
 | `GET /d/{id}` | Halaman penerima. Selalu `200`, identik untuk semua id |
 | `POST /api/drops/{id}/read` | Mengonsumsi drop. Mengembalikan `200 {payload, kind, meta}` atau `404 {"error":"not_found"}` yang seragam |
+| `GET /api/drops/{id}/status` | Status pemilik dengan `Authorization: Bearer <owner_token>` |
+| `POST /api/drops/{id}/revoke` | Revokasi pemilik dengan header yang sama |
+| `POST /api/drops/{id}/extend` | Perpanjangan TTL sekali dengan body JSON `ttl` |
+| `GET /metrics` | Counter Prometheus dengan `Authorization: Bearer <metrics_token>` |
 | `GET /healthz` | Health check. Mengembalikan `200 ok` |
 
 `payload` adalah base64url dari `iv[12]` ditambah ciphertext AES-256-GCM atas envelope JSON `{"v":1,"kind":"text|file","name"?,"data":base64url}`. `ttl` harus salah satu dari `10m`, `1h`, `24h`, `7d`. `max_reads` default `1`, maksimum `10`. Id acak 128-bit, base64url (22 karakter). Error: `400`, `413`, `429`, `503`.

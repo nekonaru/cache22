@@ -17,6 +17,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -31,7 +32,7 @@ type cliConfig struct {
 	server     string
 	ttl        string
 	maxReads   int
-	file       string
+	files      []string
 	passphrase string
 	out        string
 }
@@ -52,6 +53,9 @@ func main() {
 
 func run() error {
 	args := os.Args[1:]
+	if len(args) > 0 && (args[0] == "status" || args[0] == "revoke" || args[0] == "extend") {
+		return runOwnerCommand(args[0], args[1:])
+	}
 	if len(args) > 0 && args[0] == "get" {
 		return runGet(args[1:])
 	}
@@ -128,7 +132,7 @@ func parseCreateFlags(args []string) (cliConfig, error) {
 				return c, err
 			}
 			i++
-			c.file = v
+			c.files = append(c.files, v)
 		case "-passphrase":
 			v, err := nextFlag(args, i, "-passphrase")
 			if err != nil {
@@ -170,17 +174,21 @@ func runCreate(args []string) error {
 	}
 
 	var plaintext []byte
+	var files []crypt.FileEntry
 	kind, name := "text", ""
-	if cfg.file != "" {
-		b, err := os.ReadFile(cfg.file)
+	total := 0
+	for _, path := range cfg.files {
+		b, err := os.ReadFile(path)
 		if err != nil {
-			return fmt.Errorf("read %s: %w", cfg.file, err)
+			return fmt.Errorf("read %s: %w", path, err)
 		}
-		if len(b) > 2<<20 {
-			return errors.New("file exceeds 2 MB limit")
+		total += len(b)
+		if total > 2<<20 {
+			return errors.New("total file size exceeds 2 MB limit")
 		}
-		plaintext, kind, name = b, "file", baseName(cfg.file)
-	} else {
+		files = append(files, crypt.FileEntry{Name: baseName(path), Data: b})
+	}
+	if len(files) == 0 {
 		b, err := io.ReadAll(io.LimitReader(os.Stdin, 64<<10+1))
 		if err != nil {
 			return err
@@ -189,8 +197,13 @@ func runCreate(args []string) error {
 			return errors.New("stdin exceeds 64 KB limit (use -file for files)")
 		}
 		plaintext = b
+	} else if len(files) == 1 {
+		kind, name = "file", files[0].Name
+		plaintext = files[0].Data
+	} else {
+		kind = "files"
 	}
-	if len(plaintext) == 0 {
+	if len(plaintext) == 0 && len(files) == 0 {
 		return errors.New("nothing to send (empty input)")
 	}
 
@@ -198,7 +211,12 @@ func runCreate(args []string) error {
 	if err != nil {
 		return err
 	}
-	payload, err := crypt.EncryptPayload(plaintext, kind, name, key)
+	var payload string
+	if kind == "files" {
+		payload, err = crypt.EncryptFiles(files, key)
+	} else {
+		payload, err = crypt.EncryptPayload(plaintext, kind, name, key)
+	}
 	if err != nil {
 		return err
 	}
@@ -239,8 +257,9 @@ func runCreate(args []string) error {
 		return fmt.Errorf("server returned %d: %s", resp.StatusCode, strings.TrimSpace(string(b)))
 	}
 	var created struct {
-		ID  string `json:"id"`
-		URL string `json:"url"`
+		ID         string `json:"id"`
+		URL        string `json:"url"`
+		OwnerToken string `json:"owner_token"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&created); err != nil {
 		return fmt.Errorf("bad server response: %w", err)
@@ -250,6 +269,9 @@ func runCreate(args []string) error {
 		fmt.Fprintln(os.Stderr, "passphrase required to open; share it over a separate channel")
 	} else {
 		link += "#" + crypt.EncodeKey(key)
+	}
+	if created.OwnerToken != "" {
+		fmt.Fprintf(os.Stderr, "owner token (save it for status/revoke/extend): %s\n", created.OwnerToken)
 	}
 	fmt.Println(link)
 	return nil
@@ -315,6 +337,23 @@ func runGet(args []string) error {
 		return errors.New("decryption failed - wrong link, corrupted data, or wrong passphrase")
 	}
 
+	if env.V == crypt.VersionFiles || body.Kind == "files" {
+		dir := out
+		if dir == "" {
+			dir = "."
+		}
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			return err
+		}
+		for _, f := range env.Files {
+			path := filepath.Join(dir, filepath.Base(f.Name))
+			if err := os.WriteFile(path, f.Data, 0o600); err != nil {
+				return err
+			}
+			fmt.Fprintf(os.Stderr, "saved %s (%d bytes)\n", path, len(f.Data))
+		}
+		return nil
+	}
 	if body.Kind == "file" || env.Kind == "file" {
 		path := out
 		if path == "" {
@@ -404,4 +443,56 @@ func baseName(p string) string {
 		return p[i+1:]
 	}
 	return p
+}
+
+// runOwnerCommand implements status, revoke and extend with the owner token
+// from CACHE22_OWNER_TOKEN.
+func runOwnerCommand(cmd string, args []string) error {
+	var rawURL string
+	for i := 0; i < len(args); i++ {
+		if args[i] != "-o" && rawURL != "" {
+			return fmt.Errorf("unexpected argument %q", args[i])
+		}
+		rawURL = args[i]
+	}
+	if rawURL == "" {
+		return fmt.Errorf("usage: deadrop %s <url>", cmd)
+	}
+	id, _, base, err := parseDropURL(rawURL)
+	if err != nil {
+		return err
+	}
+	token := os.Getenv("CACHE22_OWNER_TOKEN")
+	if token == "" {
+		return errors.New("set CACHE22_OWNER_TOKEN")
+	}
+	method, path := http.MethodGet, "/status"
+	switch cmd {
+	case "revoke":
+		method, path = http.MethodPost, "/revoke"
+	case "extend":
+		method, path = http.MethodPost, "/extend"
+	}
+	var reader io.Reader
+	if cmd == "extend" {
+		reader = strings.NewReader(`{"ttl":"24h"}`)
+	}
+	req, err := http.NewRequest(method, strings.TrimSuffix(base, "/")+"/api/drops/"+id+path, reader)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("server unreachable: %w", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("%s", strings.TrimSpace(string(body)))
+	}
+	fmt.Println(strings.TrimSpace(string(body)))
+	return nil
 }

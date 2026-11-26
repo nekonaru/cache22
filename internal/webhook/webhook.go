@@ -43,6 +43,7 @@ type Client struct {
 	hc      *http.Client
 	mu      sync.RWMutex
 	secret  string // optional HMAC signing key for receiver verification
+	format  string // json, form or slack
 	resolve func(ctx context.Context, host string) ([]net.IP, error)
 }
 
@@ -63,7 +64,8 @@ func New(raw string) (*Client, error) {
 	// Strip credentials if any: never send them over a webhook.
 	u.User = nil
 	return &Client{
-		url: u,
+		url:    u,
+		format: "json",
 		hc: &http.Client{
 			Timeout: 5 * time.Second,
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -74,6 +76,15 @@ func New(raw string) (*Client, error) {
 			return net.DefaultResolver.LookupIP(ctx, "ip", host)
 		},
 	}, nil
+}
+
+// SetFormat selects the request body format: json, form or slack.
+func (c *Client) SetFormat(format string) {
+	if format == "form" || format == "slack" {
+		c.format = format
+		return
+	}
+	c.format = "json"
 }
 
 // SetSigningSecret enables an HMAC-SHA256 signature header on each POST.
@@ -152,7 +163,27 @@ func (c *Client) Send(ctx context.Context, ev Event) error {
 	if err := c.validateEndpoint(ctx); err != nil {
 		return err
 	}
-	body, err := json.Marshal(ev)
+	var body []byte
+	var contentType string
+	var err error
+	switch c.format {
+	case "form":
+		form := url.Values{}
+		form.Set("event", ev.Event)
+		form.Set("id", ev.ID)
+		form.Set("kind", ev.Kind)
+		form.Set("reads_left", fmt.Sprintf("%d", ev.ReadsLeft))
+		form.Set("read_at", ev.ReadAt)
+		body = []byte(form.Encode())
+		contentType = "application/x-www-form-urlencoded"
+	case "slack":
+		text := fmt.Sprintf("Cache22 %s: kind %s, %d reads left, %s", ev.Event, ev.Kind, ev.ReadsLeft, ev.ReadAt)
+		body, err = json.Marshal(map[string]string{"text": text})
+		contentType = "application/json"
+	default:
+		body, err = json.Marshal(ev)
+		contentType = "application/json"
+	}
 	if err != nil {
 		return err
 	}
@@ -160,7 +191,7 @@ func (c *Client) Send(ctx context.Context, ev Event) error {
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", contentType)
 	req.Header.Set("User-Agent", "cache22-webhook/1.0")
 	c.mu.RLock()
 	secret := c.secret

@@ -23,6 +23,29 @@ func (f *fakeNotifier) Send(ctx context.Context, ev webhook.Event) error {
 	return nil
 }
 
+func (f *fakeNotifier) countEvent(event string) int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	n := 0
+	for _, ev := range f.events {
+		if ev.Event == event {
+			n++
+		}
+	}
+	return n
+}
+
+func (f *fakeNotifier) lastEvent(event string) webhook.Event {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for i := len(f.events) - 1; i >= 0; i-- {
+		if f.events[i].Event == event {
+			return f.events[i]
+		}
+	}
+	return webhook.Event{}
+}
+
 func (f *fakeNotifier) count() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -40,7 +63,7 @@ func (f *fakeNotifier) last() webhook.Event {
 
 func waitForEvents(n *fakeNotifier, want int) {
 	deadline := time.Now().Add(time.Second)
-	for n.count() < want && time.Now().Before(deadline) {
+	for n.count() < want+1 && time.Now().Before(deadline) {
 		time.Sleep(5 * time.Millisecond)
 	}
 }
@@ -57,7 +80,7 @@ func TestWebhookEventFiredOnRead(t *testing.T) {
 	}
 	do(t, s, "POST", "/api/drops/"+cr.ID+"/read", nil, nil)
 	waitForEvents(notifier, 1)
-	got := notifier.last()
+	got := notifier.lastEvent("drop.read")
 	if got.Event != "drop.read" || got.Kind != "text" || got.ID != cr.ID || got.ReadsLeft != 0 {
 		t.Fatalf("event mismatch: %+v", got)
 	}
@@ -75,7 +98,7 @@ func TestTelegramEventFiredOnRead(t *testing.T) {
 	}
 	do(t, s, "POST", "/api/drops/"+cr.ID+"/read", nil, nil)
 	waitForEvents(notifier, 1)
-	got := notifier.last()
+	got := notifier.lastEvent("drop.read")
 	if got.Event != "drop.read" || got.Kind != "text" || got.ID != cr.ID || got.ReadsLeft != 0 {
 		t.Fatalf("event mismatch: %+v", got)
 	}
@@ -96,8 +119,8 @@ func TestWebhookAndTelegramBothFiredTogether(t *testing.T) {
 	do(t, s, "POST", "/api/drops/"+cr.ID+"/read", nil, nil)
 	waitForEvents(wh, 1)
 	waitForEvents(tn, 1)
-	if wh.count() != 1 || tn.count() != 1 {
-		t.Fatalf("wh=%d tn=%d, want 1 each", wh.count(), tn.count())
+	if wh.countEvent("drop.read") != 1 || tn.countEvent("drop.read") != 1 {
+		t.Fatalf("wh=%d tn=%d, want 1 each", wh.countEvent("drop.read"), tn.countEvent("drop.read"))
 	}
 }
 
@@ -125,14 +148,16 @@ func TestWebhookEventIncludesFinalRead(t *testing.T) {
 	do(t, s, "POST", "/api/drops/"+cr.ID+"/read", nil, nil)
 	do(t, s, "POST", "/api/drops/"+cr.ID+"/read", nil, nil)
 	waitForEvents(notifier, 2)
-	if got := notifier.count(); got != 2 {
+	if got := notifier.countEvent("drop.read"); got != 2 {
 		t.Fatalf("events = %d, want 2", got)
 	}
 	// The two reads race; check the multiset, not the order.
 	notifier.mu.Lock()
 	var lefts []int
 	for _, ev := range notifier.events {
-		lefts = append(lefts, ev.ReadsLeft)
+		if ev.Event == "drop.read" {
+			lefts = append(lefts, ev.ReadsLeft)
+		}
 	}
 	notifier.mu.Unlock()
 	count1, count0 := 0, 0

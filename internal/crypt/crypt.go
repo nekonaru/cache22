@@ -2,6 +2,7 @@
 // It mirrors the browser implementation exactly:
 //
 //	envelope := {"v":1,"kind":"text|file","name"?,"data":base64url(bytes)}
+//	envelope := {"v":2,"kind":"files","files":[{"name":...,"data":base64url}]}
 //	payload  := base64url( iv[12] || AES-256-GCM(envelope) )
 //	fragment := base64url(rawKey[32])
 //
@@ -26,6 +27,7 @@ import (
 
 const (
 	Version       = 1
+	VersionFiles  = 2
 	keyBytes      = 32
 	ivBytes       = 12
 	saltBytes     = 16
@@ -37,19 +39,32 @@ const (
 // ErrDecrypt indicates authentication failed (wrong key or tampering).
 var ErrDecrypt = errors.New("crypt: decryption failed")
 
-// Envelope is the decrypted plaintext structure (data is raw bytes).
-type Envelope struct {
-	V    int
-	Kind string
+// FileEntry is one encrypted file in a multi-file envelope.
+type FileEntry struct {
 	Name string
 	Data []byte
 }
 
+// Envelope is the decrypted plaintext structure (data is raw bytes).
+type Envelope struct {
+	V     int
+	Kind  string
+	Name  string
+	Data  []byte
+	Files []FileEntry
+}
+
 // EnvelopeJSON mirrors the JS object exactly (data as base64url string).
 type envelopeJSON struct {
-	V    int    `json:"v"`
-	Kind string `json:"kind"`
-	Name string `json:"name,omitempty"`
+	V     int        `json:"v"`
+	Kind  string     `json:"kind"`
+	Name  string     `json:"name,omitempty"`
+	Data  string     `json:"data,omitempty"`
+	Files []fileJSON `json:"files,omitempty"`
+}
+
+type fileJSON struct {
+	Name string `json:"name"`
 	Data string `json:"data"`
 }
 
@@ -114,6 +129,39 @@ func EncryptPayload(plaintext []byte, kind, name string, key []byte) (payload st
 
 // DecryptPayload reverses EncryptPayload. On authentication failure it
 // returns ErrDecrypt.
+// EncryptFiles encrypts a multi-file envelope (version 2).
+func EncryptFiles(files []FileEntry, key []byte) (payload string, err error) {
+	if len(files) == 0 {
+		return "", errors.New("crypt: no files")
+	}
+	if len(key) != keyBytes {
+		return "", errors.New("crypt: key must be 32 bytes")
+	}
+	list := make([]fileJSON, 0, len(files))
+	for _, f := range files {
+		list = append(list, fileJSON{Name: f.Name, Data: b64uEncode(f.Data)})
+	}
+	env := envelopeJSON{V: VersionFiles, Kind: "files", Files: list}
+	plain, err := json.Marshal(env)
+	if err != nil {
+		return "", err
+	}
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return "", err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", err
+	}
+	iv := make([]byte, ivBytes)
+	if _, err := rand.Read(iv); err != nil {
+		return "", err
+	}
+	ct := gcm.Seal(nil, iv, plain, nil)
+	return b64uEncode(append(iv, ct...)), nil
+}
+
 func DecryptPayload(payload string, key []byte) (Envelope, error) {
 	var out Envelope
 	if len(key) != keyBytes {
@@ -143,8 +191,22 @@ func DecryptPayload(payload string, key []byte) (Envelope, error) {
 	if err := json.Unmarshal(plain, &env); err != nil {
 		return out, ErrDecrypt
 	}
-	if env.V != Version {
+	if env.V != Version && env.V != VersionFiles {
 		return out, ErrDecrypt
+	}
+	if env.V == VersionFiles {
+		if env.Kind != "files" || len(env.Files) == 0 {
+			return out, ErrDecrypt
+		}
+		files := make([]FileEntry, 0, len(env.Files))
+		for _, f := range env.Files {
+			data, err := b64uDecode(f.Data)
+			if err != nil {
+				return out, ErrDecrypt
+			}
+			files = append(files, FileEntry{Name: f.Name, Data: data})
+		}
+		return Envelope{V: env.V, Kind: env.Kind, Files: files}, nil
 	}
 	if env.Kind != kindText && env.Kind != kindFile {
 		return out, ErrDecrypt
