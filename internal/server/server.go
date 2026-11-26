@@ -11,6 +11,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -18,6 +19,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -371,8 +373,15 @@ func (s *Server) originOK(r *http.Request) bool {
 	if o == "" {
 		return true // CLI and curl do not send Origin
 	}
-	base := strings.TrimSuffix(s.cfg.BaseURL, "/")
-	return strings.HasPrefix(o, base)
+	ou, err := url.Parse(o)
+	if err != nil {
+		return false
+	}
+	bu, err := url.Parse(s.cfg.BaseURL)
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(ou.Scheme, bu.Scheme) && strings.EqualFold(ou.Host, bu.Host)
 }
 
 func (s *Server) clientIP(r *http.Request) string {
@@ -411,11 +420,18 @@ func writeError(w http.ResponseWriter, status int, code string) {
 // ---- handlers ----
 
 func (s *Server) metrics(w http.ResponseWriter, r *http.Request) {
+	if !s.limits.Allow(s.clientIP(r)) {
+		w.Header().Set("Retry-After", "60")
+		writeError(w, http.StatusTooManyRequests, "rate_limited")
+		return
+	}
 	if s.cfg.MetricsToken == "" {
 		writeNotFound(w)
 		return
 	}
-	if r.Header.Get("Authorization") != "Bearer "+s.cfg.MetricsToken {
+	provided := r.Header.Get("Authorization")
+	want := "Bearer " + s.cfg.MetricsToken
+	if subtle.ConstantTimeCompare([]byte(provided), []byte(want)) != 1 {
 		writeNotFound(w)
 		return
 	}
@@ -537,7 +553,7 @@ func (s *Server) createDrop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	limit := s.cfg.MaxTextBytes
-	if req.Kind == store.KindFile {
+	if req.Kind == store.KindFile || req.Kind == "files" {
 		limit = s.cfg.MaxFileBytes
 	}
 	if len(decoded) > limit {
@@ -680,6 +696,13 @@ func (s *Server) statusDrop(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func kindOf(d store.Drop) string {
+	if d.Kind == "" {
+		return "text"
+	}
+	return d.Kind
+}
+
 func (s *Server) revokeDrop(w http.ResponseWriter, r *http.Request) {
 	if !s.originOK(r) {
 		writeNotFound(w)
@@ -696,12 +719,13 @@ func (s *Server) revokeDrop(w http.ResponseWriter, r *http.Request) {
 		writeNotFound(w)
 		return
 	}
-	if !s.store.OwnerDelete(id, hash, s.now()) {
+	d, ok := s.store.OwnerGet(id, hash, s.now())
+	if !ok || !s.store.OwnerDelete(id, hash, s.now()) {
 		writeNotFound(w)
 		return
 	}
 	s.revoked.Add(1)
-	s.notify(webhook.Event{Event: "drop.revoked", ID: id, Kind: "text", ReadsLeft: 0, ReadAt: s.now().UTC().Format(time.RFC3339)})
+	s.notify(webhook.Event{Event: "drop.revoked", ID: id, Kind: kindOf(d), ReadsLeft: 0, ReadAt: s.now().UTC().Format(time.RFC3339)})
 	writeJSON(w, http.StatusOK, map[string]string{"status": "revoked"})
 }
 

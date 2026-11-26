@@ -237,7 +237,7 @@ func (b *Bolt) OwnerUpdate(d Drop, ownerHash []byte, now time.Time) bool {
 			return nil
 		}
 		var rec dropRecord
-		if json.Unmarshal(v, &rec) != nil || !boltOwnerMatch(rec, ownerHash, now) {
+		if json.Unmarshal(v, &rec) != nil || !boltOwnerMatch(rec, ownerHash, now) || rec.Extended || rec.ReadsLeft != d.ReadsLeft {
 			return nil
 		}
 		buf, err := json.Marshal(recOf(d))

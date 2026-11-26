@@ -53,6 +53,9 @@ func main() {
 
 func run() error {
 	args := os.Args[1:]
+	if len(args) > 0 && (args[0] == "status" || args[0] == "revoke" || args[0] == "extend") {
+		return runOwnerCommand(args[0], args[1:])
+	}
 	if len(args) > 0 && args[0] == "get" {
 		return runGet(args[1:])
 	}
@@ -254,8 +257,9 @@ func runCreate(args []string) error {
 		return fmt.Errorf("server returned %d: %s", resp.StatusCode, strings.TrimSpace(string(b)))
 	}
 	var created struct {
-		ID  string `json:"id"`
-		URL string `json:"url"`
+		ID         string `json:"id"`
+		URL        string `json:"url"`
+		OwnerToken string `json:"owner_token"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&created); err != nil {
 		return fmt.Errorf("bad server response: %w", err)
@@ -265,6 +269,9 @@ func runCreate(args []string) error {
 		fmt.Fprintln(os.Stderr, "passphrase required to open; share it over a separate channel")
 	} else {
 		link += "#" + crypt.EncodeKey(key)
+	}
+	if created.OwnerToken != "" {
+		fmt.Fprintf(os.Stderr, "owner token (save it for status/revoke/extend): %s\n", created.OwnerToken)
 	}
 	fmt.Println(link)
 	return nil
@@ -436,4 +443,56 @@ func baseName(p string) string {
 		return p[i+1:]
 	}
 	return p
+}
+
+// runOwnerCommand implements status, revoke and extend with the owner token
+// from CACHE22_OWNER_TOKEN.
+func runOwnerCommand(cmd string, args []string) error {
+	var rawURL string
+	for i := 0; i < len(args); i++ {
+		if args[i] != "-o" && rawURL != "" {
+			return fmt.Errorf("unexpected argument %q", args[i])
+		}
+		rawURL = args[i]
+	}
+	if rawURL == "" {
+		return fmt.Errorf("usage: deadrop %s <url>", cmd)
+	}
+	id, _, base, err := parseDropURL(rawURL)
+	if err != nil {
+		return err
+	}
+	token := os.Getenv("CACHE22_OWNER_TOKEN")
+	if token == "" {
+		return errors.New("set CACHE22_OWNER_TOKEN")
+	}
+	method, path := http.MethodGet, "/status"
+	switch cmd {
+	case "revoke":
+		method, path = http.MethodPost, "/revoke"
+	case "extend":
+		method, path = http.MethodPost, "/extend"
+	}
+	var reader io.Reader
+	if cmd == "extend" {
+		reader = strings.NewReader(`{"ttl":"24h"}`)
+	}
+	req, err := http.NewRequest(method, strings.TrimSuffix(base, "/")+"/api/drops/"+id+path, reader)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{Timeout: 15 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("server unreachable: %w", err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("%s", strings.TrimSpace(string(body)))
+	}
+	fmt.Println(strings.TrimSpace(string(body)))
+	return nil
 }

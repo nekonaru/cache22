@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
@@ -42,10 +43,10 @@ func makeWebhook(cfg config.Config, logger *slog.Logger) (*webhook.Client, error
 	}
 	if cfg.NotifySecret != "" {
 		c.SetSigningSecret(cfg.NotifySecret)
-		c.SetFormat(cfg.WebhookFormat)
 		logger.Info("webhook signatures enabled")
 	}
-	logger.Info("webhook notifications enabled")
+	c.SetFormat(cfg.WebhookFormat)
+	logger.Info("webhook notifications enabled", "format", cfg.WebhookFormat)
 	return c, nil
 }
 
@@ -58,28 +59,25 @@ func run() error {
 
 	var st store.Store
 	var closer func() error
-	if cfg.Data != "" && cfg.Data != "-" {
+	backupPath := os.Getenv("CACHE22_BACKUP_OUT")
+	if cfg.Data == "" || cfg.Data == "-" {
+		if backupPath != "" {
+			return errors.New("backup requires a persistent -data path")
+		}
+		st = store.NewMemory(cfg.MaxTotalBytes)
+		logger.Info("storage: in-memory (data is lost on restart; set -data/CACHE22_DATA for persistence)")
+	} else {
 		bs, err := store.NewBolt(cfg.Data, cfg.MaxTotalBytes)
 		if err != nil {
 			return err
 		}
-		if backupPath := os.Getenv("CACHE22_BACKUP_OUT"); backupPath != "" {
+		if backupPath != "" {
 			defer func() { _ = bs.Close() }()
 			return bs.Backup(backupPath)
-		}
-		_ = bs
-	}
-	if cfg.Data != "" && cfg.Data != "-" {
-		bs, err := store.NewBolt(cfg.Data, cfg.MaxTotalBytes)
-		if err != nil {
-			return err
 		}
 		st = bs
 		closer = bs.Close
 		logger.Info("storage: bbolt", "path", cfg.Data)
-	} else {
-		st = store.NewMemory(cfg.MaxTotalBytes)
-		logger.Info("storage: in-memory (data is lost on restart; set -data/CACHE22_DATA for persistence)")
 	}
 
 	hook, err := makeWebhook(cfg, logger)

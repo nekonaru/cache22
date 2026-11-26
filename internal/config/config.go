@@ -81,15 +81,25 @@ func envBool(key string, def bool) bool {
 // used by Cache22, for example "7d".
 func ParseTTL(raw string) (time.Duration, error) {
 	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return 0, fmt.Errorf("invalid duration")
+	}
 	if strings.HasSuffix(raw, "d") {
 		days := strings.TrimSuffix(raw, "d")
 		n, err := strconv.Atoi(days)
 		if err != nil || n <= 0 {
 			return 0, fmt.Errorf("invalid duration %q", raw)
 		}
+		if n > 3650 {
+			return 0, fmt.Errorf("duration too large %q", raw)
+		}
 		return time.Duration(n) * 24 * time.Hour, nil
 	}
-	return time.ParseDuration(raw)
+	d, err := time.ParseDuration(raw)
+	if err != nil || d <= 0 {
+		return 0, fmt.Errorf("invalid duration %q", raw)
+	}
+	return d, nil
 }
 
 // Parse wires flags to defaults pulled from the environment. It reads from

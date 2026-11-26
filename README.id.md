@@ -226,7 +226,7 @@ Free plan punya filesystem yang ephemeral, jadi servis berjalan dengan `-data -`
 
 | Metode dan path | Fungsi |
 |-----------------|--------|
-| `POST /api/drops` | Membuat drop. Body: `{payload, ttl, max_reads?, kind, meta?}`. Mengembalikan `201 {id, url, expires_at}` |
+| `POST /api/drops` | Membuat drop. Body: `{payload, ttl, max_reads?, kind, meta?}`. Mengembalikan `201 {id, url, expires_at, owner_token}` |
 | `GET /d/{id}` | Halaman penerima. Selalu `200`, identik untuk semua id |
 | `POST /api/drops/{id}/read` | Mengonsumsi drop. Mengembalikan `200 {payload, kind, meta}` atau `404 {"error":"not_found"}` yang seragam |
 | `GET /api/drops/{id}/status` | Status pemilik dengan `Authorization: Bearer <owner_token>` |

@@ -27,9 +27,6 @@ Major feature release: owner control tokens, multi-file drops, configurable TTL,
 - **The QR code is a real QR encoder limited to versions 1 to 6.** Very long base URLs may exceed its capacity; shorten the base URL or use the copy button.
 - **Control token is a new credential.** Losing it means losing revoke, status and extend. It is shown only at create time.
 - **Undo is local only.** After a reveal the server copy is already burned, so undo cannot restore a reloadable link.
-
-## v1.5.0 - 2026-11-26
-
 ## v1.5.0 - 2026-11-26
 
 Feature release: signed webhook receipts plus a stricter verification pipeline.

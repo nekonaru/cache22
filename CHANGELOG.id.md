@@ -27,9 +27,6 @@ Rilis fitur besar: token kendali pemilik, drop multi-file, TTL terkonfigurasi, n
 - **QR code adalah encoder asli yang dibatasi versi 1 sampai 6.** Base URL yang sangat panjang bisa melebihi kapasitas; perpendek base URL atau gunakan tombol salin.
 - **Token kendali adalah kredensial baru.** Hilangnya token berarti hilangnya akses revoke, status, dan extend. Token hanya ditampilkan saat create.
 - **Undo hanya lokal.** Setelah reveal, salinan server sudah terbakar, jadi undo tidak mengembalikan link yang bisa dibuka ulang.
-
-## v1.5.0 - 2026-11-26
-
 ## v1.5.0 - 2026-11-26
 
 Rilis fitur: webhook read receipt bersignature dan pipeline verifikasi yang lebih ketat.

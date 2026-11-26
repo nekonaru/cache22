@@ -226,7 +226,7 @@ The free plan has an ephemeral filesystem, so the service runs with `-data -` (p
 
 | Method and path | Purpose |
 |-----------------|---------|
-| `POST /api/drops` | Create a drop. Body: `{payload, ttl, max_reads?, kind, meta?}`. Returns `201 {id, url, expires_at}` |
+| `POST /api/drops` | Create a drop. Body: `{payload, ttl, max_reads?, kind, meta?}`. Returns `201 {id, url, expires_at, owner_token}` |
 | `GET /d/{id}` | Recipient page. Always `200`, identical for every id |
 | `POST /api/drops/{id}/read` | Consume a drop. Returns `200 {payload, kind, meta}` or the uniform `404 {"error":"not_found"}` |
 | `GET /api/drops/{id}/status` | Owner status with `Authorization: Bearer <owner_token>` |

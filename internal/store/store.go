@@ -186,7 +186,7 @@ func (m *Memory) OwnerUpdate(d Drop, ownerHash []byte, now time.Time) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	cur, ok := m.drops[d.ID]
-	if !ok || !now.Before(cur.ExpiresAt) || !ownerMatch(cur, ownerHash) {
+	if !ok || !now.Before(cur.ExpiresAt) || !ownerMatch(cur, ownerHash) || cur.Extended || cur.ReadsLeft != d.ReadsLeft {
 		return false
 	}
 	cp := d
