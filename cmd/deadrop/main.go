@@ -17,6 +17,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -31,7 +32,7 @@ type cliConfig struct {
 	server     string
 	ttl        string
 	maxReads   int
-	file       string
+	files      []string
 	passphrase string
 	out        string
 }
@@ -128,7 +129,7 @@ func parseCreateFlags(args []string) (cliConfig, error) {
 				return c, err
 			}
 			i++
-			c.file = v
+			c.files = append(c.files, v)
 		case "-passphrase":
 			v, err := nextFlag(args, i, "-passphrase")
 			if err != nil {
@@ -170,17 +171,21 @@ func runCreate(args []string) error {
 	}
 
 	var plaintext []byte
+	var files []crypt.FileEntry
 	kind, name := "text", ""
-	if cfg.file != "" {
-		b, err := os.ReadFile(cfg.file)
+	total := 0
+	for _, path := range cfg.files {
+		b, err := os.ReadFile(path)
 		if err != nil {
-			return fmt.Errorf("read %s: %w", cfg.file, err)
+			return fmt.Errorf("read %s: %w", path, err)
 		}
-		if len(b) > 2<<20 {
-			return errors.New("file exceeds 2 MB limit")
+		total += len(b)
+		if total > 2<<20 {
+			return errors.New("total file size exceeds 2 MB limit")
 		}
-		plaintext, kind, name = b, "file", baseName(cfg.file)
-	} else {
+		files = append(files, crypt.FileEntry{Name: baseName(path), Data: b})
+	}
+	if len(files) == 0 {
 		b, err := io.ReadAll(io.LimitReader(os.Stdin, 64<<10+1))
 		if err != nil {
 			return err
@@ -189,8 +194,13 @@ func runCreate(args []string) error {
 			return errors.New("stdin exceeds 64 KB limit (use -file for files)")
 		}
 		plaintext = b
+	} else if len(files) == 1 {
+		kind, name = "file", files[0].Name
+		plaintext = files[0].Data
+	} else {
+		kind = "files"
 	}
-	if len(plaintext) == 0 {
+	if len(plaintext) == 0 && len(files) == 0 {
 		return errors.New("nothing to send (empty input)")
 	}
 
@@ -198,7 +208,12 @@ func runCreate(args []string) error {
 	if err != nil {
 		return err
 	}
-	payload, err := crypt.EncryptPayload(plaintext, kind, name, key)
+	var payload string
+	if kind == "files" {
+		payload, err = crypt.EncryptFiles(files, key)
+	} else {
+		payload, err = crypt.EncryptPayload(plaintext, kind, name, key)
+	}
 	if err != nil {
 		return err
 	}
@@ -315,6 +330,23 @@ func runGet(args []string) error {
 		return errors.New("decryption failed - wrong link, corrupted data, or wrong passphrase")
 	}
 
+	if env.V == crypt.VersionFiles || body.Kind == "files" {
+		dir := out
+		if dir == "" {
+			dir = "."
+		}
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			return err
+		}
+		for _, f := range env.Files {
+			path := filepath.Join(dir, filepath.Base(f.Name))
+			if err := os.WriteFile(path, f.Data, 0o600); err != nil {
+				return err
+			}
+			fmt.Fprintf(os.Stderr, "saved %s (%d bytes)\n", path, len(f.Data))
+		}
+		return nil
+	}
 	if body.Kind == "file" || env.Kind == "file" {
 		path := out
 		if path == "" {

@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Config holds all knobs for the server.
@@ -26,6 +27,11 @@ type Config struct {
 	TelegramToken  string // Telegram bot token; empty disables Telegram read receipts (env CACHE22_TELEGRAM_BOT_TOKEN)
 	TelegramChatID string // Telegram chat id for read receipts (env CACHE22_TELEGRAM_CHAT_ID)
 	NotifySecret   string // optional HMAC key for signed webhook receipts (env CACHE22_NOTIFY_SECRET)
+	TTLAllowlist   string // comma separated TTL values exposed by the UI (env CACHE22_TTL_ALLOWLIST)
+	HSTSMaxAge     int    // HSTS max-age in seconds, 0 disables (env CACHE22_HSTS_MAX_AGE)
+	RequireOrigin  bool   // require matching Origin header on browser POSTs (env CACHE22_REQUIRE_ORIGIN)
+	MetricsToken   string // bearer token for /metrics (env CACHE22_METRICS_TOKEN)
+	WebhookFormat  string // json, form or slack (env CACHE22_WEBHOOK_FORMAT)
 }
 
 func envStr(key, def string) string {
@@ -71,6 +77,21 @@ func envBool(key string, def bool) bool {
 	return def
 }
 
+// ParseTTL accepts Go duration strings plus the additional day suffix "d"
+// used by Cache22, for example "7d".
+func ParseTTL(raw string) (time.Duration, error) {
+	raw = strings.TrimSpace(raw)
+	if strings.HasSuffix(raw, "d") {
+		days := strings.TrimSuffix(raw, "d")
+		n, err := strconv.Atoi(days)
+		if err != nil || n <= 0 {
+			return 0, fmt.Errorf("invalid duration %q", raw)
+		}
+		return time.Duration(n) * 24 * time.Hour, nil
+	}
+	return time.ParseDuration(raw)
+}
+
 // Parse wires flags to defaults pulled from the environment. It reads from
 // the passed FlagSet so tests can build isolated parsers.
 func Parse(fs *flag.FlagSet, args []string) (Config, error) {
@@ -90,6 +111,11 @@ func Parse(fs *flag.FlagSet, args []string) (Config, error) {
 	fs.StringVar(&c.TelegramToken, "telegram-bot-token", "", "Telegram bot token for read receipts (env CACHE22_TELEGRAM_BOT_TOKEN)")
 	fs.StringVar(&c.TelegramChatID, "telegram-chat-id", envStr("CACHE22_TELEGRAM_CHAT_ID", ""), "Telegram chat id for read receipts (env CACHE22_TELEGRAM_CHAT_ID)")
 	fs.StringVar(&c.NotifySecret, "notify-secret", "", "HMAC secret for signed webhook receipts (env CACHE22_NOTIFY_SECRET)")
+	fs.StringVar(&c.TTLAllowlist, "ttl-allowlist", envStr("CACHE22_TTL_ALLOWLIST", "10m,1h,24h,7d"), "comma separated TTL values allowed by the server (env CACHE22_TTL_ALLOWLIST)")
+	fs.IntVar(&c.HSTSMaxAge, "hsts-max-age", envInt("CACHE22_HSTS_MAX_AGE", 0), "HSTS max-age in seconds; 0 disables (env CACHE22_HSTS_MAX_AGE)")
+	fs.BoolVar(&c.RequireOrigin, "require-origin", envBool("CACHE22_REQUIRE_ORIGIN", false), "require matching Origin header on browser POSTs (env CACHE22_REQUIRE_ORIGIN)")
+	fs.StringVar(&c.MetricsToken, "metrics-token", "", "bearer token for /metrics (env CACHE22_METRICS_TOKEN)")
+	fs.StringVar(&c.WebhookFormat, "webhook-format", envStr("CACHE22_WEBHOOK_FORMAT", "json"), "webhook body format: json, form or slack (env CACHE22_WEBHOOK_FORMAT)")
 	if err := fs.Parse(args); err != nil {
 		return Config{}, err
 	}
@@ -101,12 +127,28 @@ func Parse(fs *flag.FlagSet, args []string) (Config, error) {
 	if !set["notify-secret"] {
 		c.NotifySecret = os.Getenv("CACHE22_NOTIFY_SECRET")
 	}
+	if !set["metrics-token"] {
+		c.MetricsToken = os.Getenv("CACHE22_METRICS_TOKEN")
+	}
 	if !strings.HasPrefix(c.BaseURL, "http://") && !strings.HasPrefix(c.BaseURL, "https://") {
 		return Config{}, fmt.Errorf("base-url must start with http:// or https://, got %q", c.BaseURL)
 	}
 	c.BaseURL = strings.TrimSuffix(c.BaseURL, "/")
 	if c.MaxTextBytes <= 0 || c.MaxFileBytes <= 0 {
 		return Config{}, fmt.Errorf("max-text-bytes and max-file-bytes must be positive")
+	}
+	for _, ttl := range strings.Split(c.TTLAllowlist, ",") {
+		if strings.TrimSpace(ttl) == "" {
+			return Config{}, fmt.Errorf("ttl-allowlist contains an empty value")
+		}
+		if _, err := ParseTTL(ttl); err != nil {
+			return Config{}, fmt.Errorf("ttl-allowlist has invalid duration %q", strings.TrimSpace(ttl))
+		}
+	}
+	switch c.WebhookFormat {
+	case "json", "form", "slack":
+	default:
+		return Config{}, fmt.Errorf("webhook-format must be json, form or slack")
 	}
 	return c, nil
 }

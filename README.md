@@ -229,6 +229,10 @@ The free plan has an ephemeral filesystem, so the service runs with `-data -` (p
 | `POST /api/drops` | Create a drop. Body: `{payload, ttl, max_reads?, kind, meta?}`. Returns `201 {id, url, expires_at}` |
 | `GET /d/{id}` | Recipient page. Always `200`, identical for every id |
 | `POST /api/drops/{id}/read` | Consume a drop. Returns `200 {payload, kind, meta}` or the uniform `404 {"error":"not_found"}` |
+| `GET /api/drops/{id}/status` | Owner status with `Authorization: Bearer <owner_token>` |
+| `POST /api/drops/{id}/revoke` | Owner revocation with the same header |
+| `POST /api/drops/{id}/extend` | One-time TTL extension with a JSON `ttl` body |
+| `GET /metrics` | Prometheus counters with `Authorization: Bearer <metrics_token>` |
 | `GET /healthz` | Health check. Returns `200 ok` |
 
 `payload` is base64url of `iv[12]` plus an AES-256-GCM ciphertext of a JSON envelope `{"v":1,"kind":"text|file","name"?,"data":base64url}`. `ttl` is one of `10m`, `1h`, `24h`, `7d`. `max_reads` defaults to `1`, maximum `10`. Ids are 128-bit random, base64url (22 characters). Errors: `400`, `413`, `429`, `503`.

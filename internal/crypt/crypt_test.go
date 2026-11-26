@@ -139,3 +139,22 @@ func TestEnvelopeJSONLayout(t *testing.T) {
 		}
 	}
 }
+
+func TestMultiFileEnvelope(t *testing.T) {
+	key, _ := GenerateKey()
+	files := []FileEntry{{Name: "a.txt", Data: []byte("alpha")}, {Name: "b.bin", Data: []byte{0, 1, 2, 255}}}
+	payload, err := EncryptFiles(files, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	env, err := DecryptPayload(payload, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if env.V != VersionFiles || env.Kind != "files" || len(env.Files) != 2 {
+		t.Fatalf("bad envelope: %+v", env)
+	}
+	if env.Files[0].Name != "a.txt" || string(env.Files[0].Data) != "alpha" || !bytes.Equal(env.Files[1].Data, []byte{0, 1, 2, 255}) {
+		t.Fatalf("bad files: %+v", env.Files)
+	}
+}

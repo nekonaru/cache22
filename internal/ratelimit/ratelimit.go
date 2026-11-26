@@ -80,3 +80,22 @@ func (l *Limiter) Len() int {
 	defer l.mu.Unlock()
 	return len(l.buckets)
 }
+
+// Remaining returns the number of whole tokens currently available for key.
+func (l *Limiter) Remaining(key string) int {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	b, ok := l.buckets[key]
+	if !ok {
+		return int(l.burst)
+	}
+	elapsed := l.now().Sub(b.last).Seconds()
+	tokens := b.tokens + elapsed*l.rate
+	if tokens > l.burst {
+		tokens = l.burst
+	}
+	if tokens < 0 {
+		tokens = 0
+	}
+	return int(tokens)
+}

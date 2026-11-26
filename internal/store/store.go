@@ -14,8 +14,9 @@ var ErrFull = errors.New("store: capacity reached")
 
 // KindText and KindFile are the only payload kinds accepted by the API.
 const (
-	KindText = "text"
-	KindFile = "file"
+	KindText  = "text"
+	KindFile  = "file"
+	KindFiles = "files"
 )
 
 // Drop is a single stored secret. Payload is stored exactly as the client
@@ -58,6 +59,8 @@ type Store interface {
 	OwnerUpdate(d Drop, ownerHash []byte, now time.Time) bool
 	// Sweep permanently removes expired drops and reports how many.
 	Sweep(now time.Time) int
+	// SweepIDs removes expired drops and returns their ids for notifications.
+	SweepIDs(now time.Time) []string
 }
 
 // Memory is an in-memory Store guarded by a single mutex.
@@ -142,6 +145,19 @@ func (m *Memory) Sweep(now time.Time) int {
 
 func ownerMatch(d *Drop, ownerHash []byte) bool {
 	return len(ownerHash) == 32 && subtle.ConstantTimeCompare(d.OwnerHash, ownerHash) == 1
+}
+
+func (m *Memory) SweepIDs(now time.Time) []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	var ids []string
+	for id, d := range m.drops {
+		if !now.Before(d.ExpiresAt) {
+			ids = append(ids, id)
+			m.remove(id)
+		}
+	}
+	return ids
 }
 
 func (m *Memory) OwnerGet(id string, ownerHash []byte, now time.Time) (Drop, bool) {

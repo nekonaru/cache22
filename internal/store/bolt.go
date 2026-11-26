@@ -3,6 +3,7 @@ package store
 import (
 	"crypto/subtle"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -149,6 +150,42 @@ func (b *Bolt) Consume(id string, now time.Time) (Drop, bool) {
 		return bucket.Put([]byte(d.ID), buf)
 	})
 	return out, ok
+}
+
+func (b *Bolt) SweepIDs(now time.Time) []string {
+	var ids []string
+	_ = b.db.Update(func(tx *bolt.Tx) error {
+		bucket := tx.Bucket(bucketDrops)
+		var expired [][]byte
+		used := readUsed(tx)
+		_ = bucket.ForEach(func(k, v []byte) error {
+			var rec dropRecord
+			if json.Unmarshal(v, &rec) == nil && !now.Before(time.Unix(0, rec.ExpiresAt)) {
+				expired = append(expired, append([]byte{}, k...))
+			}
+			return nil
+		})
+		for _, k := range expired {
+			var rec dropRecord
+			if v := bucket.Get(k); v != nil && json.Unmarshal(v, &rec) == nil {
+				used -= int64(rec.Size)
+			}
+			_ = bucket.Delete(k)
+			ids = append(ids, string(k))
+		}
+		if len(expired) > 0 {
+			_ = writeUsed(tx, used)
+		}
+		return nil
+	})
+	return ids
+}
+
+func (b *Bolt) Backup(out string) error {
+	if b.db == nil {
+		return errors.New("store closed")
+	}
+	return b.db.View(func(tx *bolt.Tx) error { return tx.CopyFile(out, 0o600) })
 }
 
 func (b *Bolt) OwnerGet(id string, ownerHash []byte, now time.Time) (Drop, bool) {

@@ -2,6 +2,34 @@
 
 All notable changes to Cache22 are documented here. The English file is the source of truth; `CHANGELOG.id.md` is the Indonesian translation.
 
+## v2.0.0 - 2026-11-27
+
+Major feature release: owner control tokens, multi-file drops, configurable TTL, notifications with events, and a richer web UI.
+
+### New features
+
+- **Owner control token.** Every create returns a 256-bit `owner_token`, stored only as a SHA-256 hash. It enables `GET /api/drops/{id}/status`, `POST /api/drops/{id}/revoke` and one `POST /api/drops/{id}/extend`. Wrong tokens get the same uniform 404.
+- **Multi-file drops.** The web UI and CLI can encrypt several small files into one version-2 envelope. The CLI writes every file on read; the total cap stays 2 MB.
+- **Notification events.** Webhook and Telegram now emit `drop.created`, `drop.read`, `drop.expired` and `drop.revoked`. Webhook formats are json, form or slack.
+- **Metrics.** `GET /metrics` returns Prometheus counters when `CACHE22_METRICS_TOKEN` is set. `/healthz?format=json` returns a JSON status.
+- **Web UI additions.** QR code for the link, native share button, passphrase confirmation and strength hint, configurable PBKDF2 iterations, drag and drop file input, keyboard shortcuts, undo, owner status controls, and Spanish, French and Japanese locales.
+- **Backup.** `CACHE22_BACKUP_OUT` writes a consistent copy of the bbolt database at startup.
+
+### Improvements
+
+- **Configurable TTL.** `-ttl-allowlist` / `CACHE22_TTL_ALLOWLIST` controls which durations the API and UI expose.
+- **Security options.** `-hsts-max-age` and `-require-origin` are opt-in browser hardening flags. Fuzz and malformed-hash tests were added.
+- **Rate headers.** API responses include `X-RateLimit-Limit` and `X-RateLimit-Remaining`.
+- **Docker Compose.** A compose file with a named bbolt volume and a healthcheck.
+
+### Known limitations
+
+- **The QR code is a real QR encoder limited to versions 1 to 6.** Very long base URLs may exceed its capacity; shorten the base URL or use the copy button.
+- **Control token is a new credential.** Losing it means losing revoke, status and extend. It is shown only at create time.
+- **Undo is local only.** After a reveal the server copy is already burned, so undo cannot restore a reloadable link.
+
+## v1.5.0 - 2026-11-26
+
 ## v1.5.0 - 2026-11-26
 
 Feature release: signed webhook receipts plus a stricter verification pipeline.
@@ -138,6 +166,7 @@ First public release of Cache22: one-time secrets that burn after reading, with 
 - **In-memory storage.** A restart deletes all drops; persistent storage is tracked on the roadmap.
 - **Copy protection.** The service cannot stop the recipient from copying or photographing the secret after reading.
 
+[v2.0.0]: https://github.com/nekonaru/cache22/compare/v1.5.0...v2.0.0
 [v1.5.0]: https://github.com/nekonaru/cache22/compare/v1.4.0...v1.5.0
 [v1.4.0]: https://github.com/nekonaru/cache22/compare/v1.3.1...v1.4.0
 [v1.3.1]: https://github.com/nekonaru/cache22/compare/v1.3.0...v1.3.1

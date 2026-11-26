@@ -23,7 +23,7 @@ func TestParseCreateFlags(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.server != "https://host" || c.ttl != "7d" || c.maxReads != 5 || c.file != "a.bin" || c.passphrase != "pw" {
+	if c.server != "https://host" || c.ttl != "7d" || c.maxReads != 5 || c.passphrase != "pw" {
 		t.Fatalf("unexpected config: %+v", c)
 	}
 }

@@ -18,7 +18,9 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/nekonaru/cache22/internal/config"
@@ -34,6 +36,22 @@ var ttlDurations = map[string]time.Duration{
 	"1h":  time.Hour,
 	"24h": 24 * time.Hour,
 	"7d":  7 * 24 * time.Hour,
+}
+
+func (s *Server) allowedTTL() map[string]time.Duration {
+	if strings.TrimSpace(s.cfg.TTLAllowlist) == "" {
+		return ttlDurations
+	}
+	out := make(map[string]time.Duration)
+	for _, raw := range strings.Split(s.cfg.TTLAllowlist, ",") {
+		raw = strings.TrimSpace(raw)
+		d, err := config.ParseTTL(raw)
+		if err != nil {
+			continue
+		}
+		out[raw] = d
+	}
+	return out
 }
 
 const (
@@ -53,6 +71,10 @@ type Server struct {
 	handler  http.Handler
 	Webhook  webhook.Notifier // optional; nil means disabled
 	Telegram webhook.Notifier // optional; nil means disabled
+
+	created atomic.Int64
+	read    atomic.Int64
+	revoked atomic.Int64
 }
 
 // New builds the handler. now may be nil (defaults to time.Now); tests
@@ -82,6 +104,7 @@ func New(cfg config.Config, st store.Store, logger *slog.Logger, now func() time
 	mux.HandleFunc("POST /api/drops/{id}/revoke", s.revokeDrop)
 	mux.HandleFunc("POST /api/drops/{id}/extend", s.extendDrop)
 	mux.HandleFunc("GET /healthz", s.healthz)
+	mux.HandleFunc("GET /metrics", s.metrics)
 	s.handler = s.withMiddleware(mux)
 	return s
 }
@@ -93,13 +116,18 @@ func (s *Server) Handler() http.Handler { return s.handler }
 func (s *Server) Sweeper(ctxDone <-chan struct{}, interval time.Duration) {
 	t := time.NewTicker(interval)
 	defer t.Stop()
+	emit := func(now time.Time) {
+		for _, id := range s.store.SweepIDs(now) {
+			s.notify(webhook.Event{Event: "drop.expired", ID: id, ReadsLeft: 0, ReadAt: now.UTC().Format(time.RFC3339)})
+		}
+	}
 	for {
 		select {
 		case <-ctxDone:
-			s.store.Sweep(s.now())
+			emit(s.now())
 			return
 		case tick := <-t.C:
-			s.store.Sweep(tick)
+			emit(tick)
 		}
 	}
 }
@@ -134,6 +162,13 @@ func (s *Server) withMiddleware(next http.Handler) http.Handler {
 		}
 		sw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
 		setSecurityHeaders(sw, nonce, s.cfg.TrustProxy)
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			sw.Header().Set("X-RateLimit-Limit", strconv.Itoa(int(s.cfg.RatePerMin)))
+			sw.Header().Set("X-RateLimit-Remaining", strconv.Itoa(s.limits.Remaining(s.clientIP(r))))
+		}
+		if s.cfg.HSTSMaxAge > 0 {
+			sw.Header().Set("Strict-Transport-Security", "max-age="+strconv.Itoa(s.cfg.HSTSMaxAge)+"; includeSubDomains")
+		}
 
 		// Wrap the response in a gzip writer only when the client accepts
 		// gzip; the decision itself is made lazily on the first Write so it
@@ -169,8 +204,7 @@ func setSecurityHeaders(w http.ResponseWriter, nonce string, trustProxy bool) {
 	h.Set("Cross-Origin-Resource-Policy", "same-origin")
 	h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), interest-cohort=()")
 	if trustProxy {
-		// HSTS only when the deployment terminates TLS ahead of us (the
-		// standard, documented way to run this app). Never over plain HTTP.
+		// HSTS only when the deployment terminates TLS ahead of us.
 		h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 	}
 	h.Set("Content-Security-Policy", strings.Join([]string{
@@ -329,6 +363,18 @@ func validID(id string) bool {
 	return true
 }
 
+func (s *Server) originOK(r *http.Request) bool {
+	if !s.cfg.RequireOrigin || r.Method == http.MethodGet || r.Method == http.MethodHead {
+		return true
+	}
+	o := r.Header.Get("Origin")
+	if o == "" {
+		return true // CLI and curl do not send Origin
+	}
+	base := strings.TrimSuffix(s.cfg.BaseURL, "/")
+	return strings.HasPrefix(o, base)
+}
+
 func (s *Server) clientIP(r *http.Request) string {
 	if s.cfg.TrustProxy {
 		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
@@ -364,7 +410,27 @@ func writeError(w http.ResponseWriter, status int, code string) {
 
 // ---- handlers ----
 
-func (s *Server) healthz(w http.ResponseWriter, _ *http.Request) {
+func (s *Server) metrics(w http.ResponseWriter, r *http.Request) {
+	if s.cfg.MetricsToken == "" {
+		writeNotFound(w)
+		return
+	}
+	if r.Header.Get("Authorization") != "Bearer "+s.cfg.MetricsToken {
+		writeNotFound(w)
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "cache22_drops_created_total %d\n", s.created.Load())
+	fmt.Fprintf(w, "cache22_drops_read_total %d\n", s.read.Load())
+	fmt.Fprintf(w, "cache22_drops_revoked_total %d\n", s.revoked.Load())
+}
+
+func (s *Server) healthz(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Query().Get("format") == "json" {
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "store": "ready"})
+		return
+	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("ok"))
@@ -380,10 +446,26 @@ func (s *Server) recipientPage(w http.ResponseWriter, _ *http.Request) {
 	s.servePage(w)
 }
 
+func (s *Server) ttlOptions() []byte {
+	var b strings.Builder
+	for _, raw := range strings.Split(s.cfg.TTLAllowlist, ",") {
+		raw = strings.TrimSpace(raw)
+		if raw == "" {
+			continue
+		}
+		selected := ""
+		if raw == "1h" {
+			selected = " selected"
+		}
+		fmt.Fprintf(&b, "<option value=%q%s data-i18n=\"ttl_%s\">%s</option>", raw, selected, raw, raw)
+	}
+	return []byte(b.String())
+}
+
 func (s *Server) servePage(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(s.page)
+	_, _ = w.Write(bytes.ReplaceAll(s.page, []byte("__TTL_OPTIONS__"), s.ttlOptions()))
 }
 
 type createRequest struct {
@@ -404,6 +486,10 @@ type createResponse struct {
 }
 
 func (s *Server) createDrop(w http.ResponseWriter, r *http.Request) {
+	if !s.originOK(r) {
+		writeNotFound(w)
+		return
+	}
 	if !s.limits.Allow(s.clientIP(r)) {
 		w.Header().Set("Retry-After", "60")
 		writeError(w, http.StatusTooManyRequests, "rate_limited")
@@ -427,12 +513,12 @@ func (s *Server) createDrop(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ttl, ok := ttlDurations[req.TTL]
+	ttl, ok := s.allowedTTL()[req.TTL]
 	if !ok {
 		writeError(w, http.StatusBadRequest, "invalid_ttl")
 		return
 	}
-	if req.Kind != store.KindText && req.Kind != store.KindFile {
+	if req.Kind != store.KindText && req.Kind != store.KindFile && req.Kind != "files" {
 		writeError(w, http.StatusBadRequest, "invalid_kind")
 		return
 	}
@@ -504,6 +590,8 @@ func (s *Server) createDrop(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal_error")
 		return
 	}
+	s.created.Add(1)
+	s.notify(webhook.Event{Event: "drop.created", ID: id, Kind: d.Kind, ReadsLeft: d.ReadsLeft, ReadAt: now.UTC().Format(time.RFC3339)})
 	writeJSON(w, http.StatusCreated, createResponse{
 		ID:         id,
 		URL:        s.cfg.BaseURL + "/d/" + id,
@@ -531,7 +619,33 @@ type extendRequest struct {
 	TTL string `json:"ttl"`
 }
 
+// notify fans a read receipt out to every configured notifier without
+// blocking the request path. Failures are logged without ids or secrets.
+func (s *Server) notify(ev webhook.Event) {
+	if s.Webhook == nil && s.Telegram == nil {
+		return
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+		defer cancel()
+		if s.Webhook != nil {
+			if err := s.Webhook.Send(ctx, ev); err != nil {
+				s.log.Warn("webhook: send failed", "err", err)
+			}
+		}
+		if s.Telegram != nil {
+			if err := s.Telegram.Send(ctx, ev); err != nil {
+				s.log.Warn("telegram: send failed", "err", err)
+			}
+		}
+	}()
+}
+
 func (s *Server) statusDrop(w http.ResponseWriter, r *http.Request) {
+	if !s.originOK(r) {
+		writeNotFound(w)
+		return
+	}
 	if !s.limits.Allow(s.clientIP(r)) {
 		w.Header().Set("Retry-After", "60")
 		writeError(w, http.StatusTooManyRequests, "rate_limited")
@@ -567,6 +681,10 @@ func (s *Server) statusDrop(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) revokeDrop(w http.ResponseWriter, r *http.Request) {
+	if !s.originOK(r) {
+		writeNotFound(w)
+		return
+	}
 	if !s.limits.Allow(s.clientIP(r)) {
 		w.Header().Set("Retry-After", "60")
 		writeError(w, http.StatusTooManyRequests, "rate_limited")
@@ -582,10 +700,16 @@ func (s *Server) revokeDrop(w http.ResponseWriter, r *http.Request) {
 		writeNotFound(w)
 		return
 	}
+	s.revoked.Add(1)
+	s.notify(webhook.Event{Event: "drop.revoked", ID: id, Kind: "text", ReadsLeft: 0, ReadAt: s.now().UTC().Format(time.RFC3339)})
 	writeJSON(w, http.StatusOK, map[string]string{"status": "revoked"})
 }
 
 func (s *Server) extendDrop(w http.ResponseWriter, r *http.Request) {
+	if !s.originOK(r) {
+		writeNotFound(w)
+		return
+	}
 	if !s.limits.Allow(s.clientIP(r)) {
 		w.Header().Set("Retry-After", "60")
 		writeError(w, http.StatusTooManyRequests, "rate_limited")
@@ -610,7 +734,7 @@ func (s *Server) extendDrop(w http.ResponseWriter, r *http.Request) {
 		writeNotFound(w)
 		return
 	}
-	ttl, ok := ttlDurations[req.TTL]
+	ttl, ok := s.allowedTTL()[req.TTL]
 	if !ok {
 		writeNotFound(w)
 		return
@@ -632,6 +756,10 @@ func (s *Server) extendDrop(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) readDrop(w http.ResponseWriter, r *http.Request) {
+	if !s.originOK(r) {
+		writeNotFound(w)
+		return
+	}
 	if !s.limits.Allow(s.clientIP(r)) {
 		w.Header().Set("Retry-After", "60")
 		writeError(w, http.StatusTooManyRequests, "rate_limited")
@@ -647,31 +775,11 @@ func (s *Server) readDrop(w http.ResponseWriter, r *http.Request) {
 		writeNotFound(w)
 		return
 	}
-	if s.Webhook != nil || s.Telegram != nil {
-		// Fire and forget with a hard timeout: the read semantics are
-		// already met; a slow notifier must never stall the response.
-		go func(d store.Drop) {
-			ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
-			defer cancel()
-			ev := webhook.Event{
-				Event:     "drop.read",
-				ID:        d.ID,
-				Kind:      d.Kind,
-				ReadsLeft: d.ReadsLeft,
-				ReadAt:    s.now().UTC().Format(time.RFC3339),
-			}
-			if s.Webhook != nil {
-				if err := s.Webhook.Send(ctx, ev); err != nil {
-					s.log.Warn("webhook: send failed", "err", err)
-				}
-			}
-			if s.Telegram != nil {
-				if err := s.Telegram.Send(ctx, ev); err != nil {
-					s.log.Warn("telegram: send failed", "err", err)
-				}
-			}
-		}(d)
-	}
+	s.notify(webhook.Event{
+		Event: "drop.read", ID: d.ID, Kind: d.Kind,
+		ReadsLeft: d.ReadsLeft, ReadAt: s.now().UTC().Format(time.RFC3339),
+	})
+	s.read.Add(1)
 	writeJSON(w, http.StatusOK, readResponse{
 		Payload: d.Payload,
 		Kind:    d.Kind,

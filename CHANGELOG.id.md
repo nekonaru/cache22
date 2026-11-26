@@ -2,6 +2,34 @@
 
 Semua perubahan penting di Cache22 didokumentasikan di sini. `CHANGELOG.md` (English) adalah sumber kebenaran; berkas ini terjemahan Indonesia.
 
+## v2.0.0 - 2026-11-27
+
+Rilis fitur besar: token kendali pemilik, drop multi-file, TTL terkonfigurasi, notifikasi dengan event, dan UI yang lebih kaya.
+
+### Fitur baru
+
+- **Token kendali pemilik.** Setiap create mengembalikan `owner_token` 256-bit yang disimpan hanya sebagai hash SHA-256. Token dipakai untuk `GET /api/drops/{id}/status`, `POST /api/drops/{id}/revoke`, dan satu kali `POST /api/drops/{id}/extend`. Token salah mendapat 404 seragam.
+- **Drop multi-file.** UI web dan CLI bisa mengenkripsi beberapa file kecil dalam envelope versi 2. CLI menulis semua file saat baca; batas total tetap 2 MB.
+- **Event notifikasi.** Webhook dan Telegram mengirim `drop.created`, `drop.read`, `drop.expired`, dan `drop.revoked`. Format webhook: json, form, atau slack.
+- **Metrik.** `GET /metrics` mengembalikan counter Prometheus bila `CACHE22_METRICS_TOKEN` di-set. `/healthz?format=json` mengembalikan status JSON.
+- **Tambahan UI web.** QR code link, tombol share native, konfirmasi dan pengukur kekuatan passphrase, iterasi PBKDF2 terkonfigurasi, drag and drop file, pintasan keyboard, undo, kontrol status pemilik, serta locale Spanyol, Prancis, dan Jepang.
+- **Backup.** `CACHE22_BACKUP_OUT` menulis salinan konsisten database bbolt saat startup.
+
+### Peningkatan
+
+- **TTL terkonfigurasi.** `-ttl-allowlist` / `CACHE22_TTL_ALLOWLIST` mengatur durasi yang tersedia di API dan UI.
+- **Opsi keamanan.** `-hsts-max-age` dan `-require-origin` bersifat opt-in. Tes fuzz dan hash salah format ditambahkan.
+- **Header rate limit.** Respons API menyertakan `X-RateLimit-Limit` dan `X-RateLimit-Remaining`.
+- **Docker Compose.** File compose dengan volume bbolt bernama dan healthcheck.
+
+### Keterbatasan yang diketahui
+
+- **QR code adalah encoder asli yang dibatasi versi 1 sampai 6.** Base URL yang sangat panjang bisa melebihi kapasitas; perpendek base URL atau gunakan tombol salin.
+- **Token kendali adalah kredensial baru.** Hilangnya token berarti hilangnya akses revoke, status, dan extend. Token hanya ditampilkan saat create.
+- **Undo hanya lokal.** Setelah reveal, salinan server sudah terbakar, jadi undo tidak mengembalikan link yang bisa dibuka ulang.
+
+## v1.5.0 - 2026-11-26
+
 ## v1.5.0 - 2026-11-26
 
 Rilis fitur: webhook read receipt bersignature dan pipeline verifikasi yang lebih ketat.
@@ -138,6 +166,7 @@ Rilis publik pertama Cache22: rahasia sekali baca yang terhapus setelah dibaca, 
 - **Penyimpanan in-memory.** Restart menghapus semua drop; penyimpanan persisten ada di roadmap.
 - **Perlindungan salinan.** Layanan tidak bisa mencegah penerima menyalin atau memotret rahasia setelah dibuka.
 
+[v2.0.0]: https://github.com/nekonaru/cache22/compare/v1.5.0...v2.0.0
 [v1.5.0]: https://github.com/nekonaru/cache22/compare/v1.4.0...v1.5.0
 [v1.4.0]: https://github.com/nekonaru/cache22/compare/v1.3.1...v1.4.0
 [v1.3.1]: https://github.com/nekonaru/cache22/compare/v1.3.0...v1.3.1

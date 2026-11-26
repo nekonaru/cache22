@@ -42,6 +42,7 @@ func makeWebhook(cfg config.Config, logger *slog.Logger) (*webhook.Client, error
 	}
 	if cfg.NotifySecret != "" {
 		c.SetSigningSecret(cfg.NotifySecret)
+		c.SetFormat(cfg.WebhookFormat)
 		logger.Info("webhook signatures enabled")
 	}
 	logger.Info("webhook notifications enabled")
@@ -57,6 +58,17 @@ func run() error {
 
 	var st store.Store
 	var closer func() error
+	if cfg.Data != "" && cfg.Data != "-" {
+		bs, err := store.NewBolt(cfg.Data, cfg.MaxTotalBytes)
+		if err != nil {
+			return err
+		}
+		if backupPath := os.Getenv("CACHE22_BACKUP_OUT"); backupPath != "" {
+			defer func() { _ = bs.Close() }()
+			return bs.Backup(backupPath)
+		}
+		_ = bs
+	}
 	if cfg.Data != "" && cfg.Data != "-" {
 		bs, err := store.NewBolt(cfg.Data, cfg.MaxTotalBytes)
 		if err != nil {
